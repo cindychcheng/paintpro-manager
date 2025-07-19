@@ -5,7 +5,9 @@
   "scripts": {
     "start": "node dist/simple-app.js",
     "dev": "ts-node src/simple-app.ts",
-    "build": "npm run client:build && npx tsc src/simple-app.ts --outDir dist --target ES2020 --module commonjs --esModuleInterop true --allowSyntheticDefaultImports true --strict true --skipLibCheck true --resolveJsonModule true",
+    "build": "npm run client:install && npm run client:build-only && npx tsc src/simple-app.ts --outDir dist --target ES2020 --module commonjs --esModuleInterop true --allowSyntheticDefaultImports true --strict true --skipLibCheck true --resolveJsonModule true",
+    "client:install": "cd client && npm install",
+    "client:build-only": "cd client && npm run build",
     "client:dev": "cd client && npm run dev",
     "client:build": "cd client && npm install && npm run build",
     "full:dev": "concurrently \"npm run dev\" \"npm run client:dev\"",
