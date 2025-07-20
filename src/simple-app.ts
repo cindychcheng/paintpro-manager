@@ -479,6 +479,14 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
 
     try {
       // Create revision record first
+      console.log('About to create revision with params:', {
+        id: parseInt(id),
+        changes,
+        revision_type,
+        change_summary,
+        created_by
+      });
+      
       const revisionId = await db.createEstimateRevision(
         parseInt(id),
         changes,
@@ -487,92 +495,14 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
         created_by
       );
 
+      console.log('Revision creation result:', revisionId);
+
       if (!revisionId) {
-        throw new Error('Failed to create revision record');
+        throw new Error('Failed to create revision record - revisionId is null');
       }
 
-      // Update project areas if provided
-      if (changes.project_areas && Array.isArray(changes.project_areas)) {
-        console.log('Updating project areas:', changes.project_areas.length, 'areas');
-        
-        // Update each project area
-        for (let i = 0; i < changes.project_areas.length; i++) {
-          const area = changes.project_areas[i];
-          console.log(`Processing area ${i}:`, area);
-          
-          // Get the current project area to compare changes
-          const currentArea = await db.get(`
-            SELECT * FROM project_areas 
-            WHERE estimate_id = ? 
-            ORDER BY created_at ASC 
-            LIMIT 1 OFFSET ?
-          `, [id, i]);
-          
-          console.log(`Current area ${i}:`, currentArea);
-
-          if (currentArea) {
-            const areaUpdates = [];
-            const areaValues = [];
-
-            // Check for changes in labor rate
-            if (area.labor_rate !== undefined && area.labor_rate !== currentArea.labor_rate) {
-              areaUpdates.push('labor_rate = ?');
-              areaValues.push(area.labor_rate);
-              
-              await db.logEstimateChange(
-                parseInt(id),
-                revisionId,
-                `project_area_${i}_labor_rate`,
-                currentArea.labor_rate,
-                area.labor_rate,
-                'updated',
-                created_by
-              );
-            }
-
-            // Check for changes in material cost
-            if (area.material_cost !== undefined && area.material_cost !== currentArea.material_cost) {
-              areaUpdates.push('material_cost = ?');
-              areaValues.push(area.material_cost);
-              
-              await db.logEstimateChange(
-                parseInt(id),
-                revisionId,
-                `project_area_${i}_material_cost`,
-                currentArea.material_cost,
-                area.material_cost,
-                'updated',
-                created_by
-              );
-            }
-
-            // Check for changes in labor hours
-            if (area.labor_hours !== undefined && area.labor_hours !== currentArea.labor_hours) {
-              areaUpdates.push('labor_hours = ?');
-              areaValues.push(area.labor_hours);
-              
-              await db.logEstimateChange(
-                parseInt(id),
-                revisionId,
-                `project_area_${i}_labor_hours`,
-                currentArea.labor_hours,
-                area.labor_hours,
-                'updated',
-                created_by
-              );
-            }
-
-            // Update the project area if there are changes
-            if (areaUpdates.length > 0) {
-              areaValues.push(currentArea.id);
-              await db.run(
-                `UPDATE project_areas SET ${areaUpdates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-                areaValues
-              );
-            }
-          }
-        }
-      }
+      // Skip complex project area updates for now to isolate the issue
+      console.log('Skipping project area updates for debugging...');
 
       // Update the actual estimate with new values
       const updatedFields = [];
