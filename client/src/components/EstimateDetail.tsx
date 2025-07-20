@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, Download } from 'lucide-react';
-import { useEstimate } from '../hooks/useEstimates';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, Download, Edit, Copy } from 'lucide-react';
+import { useEstimate, useEstimates } from '../hooks/useEstimates';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import EstimateEdit from './EstimateEdit';
+import EstimateForm from './EstimateForm';
 import { Estimate } from '../services/api';
 
 interface EstimateDetailProps {
@@ -13,7 +14,9 @@ interface EstimateDetailProps {
 
 const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, initialEditMode = false }) => {
   const { estimate, loading, error, refetch } = useEstimate(estimateId);
+  const { createEstimate } = useEstimates();
   const [isEditing, setIsEditing] = useState(initialEditMode);
+  const [isCreatingRevision, setIsCreatingRevision] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -46,6 +49,44 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
   const handleSaveEdit = (updatedEstimate: Estimate) => {
     setIsEditing(false);
     refetch(); // Refresh the estimate data
+  };
+
+  const handleCreateRevision = async () => {
+    if (!estimate) return;
+    
+    // Convert the current estimate to a new estimate request
+    const revisionData = {
+      client_id: estimate.client_id,
+      title: `${estimate.title} (Revision ${estimate.revision_number + 1})`,
+      description: estimate.description,
+      valid_until: estimate.valid_until,
+      markup_percentage: estimate.markup_percentage,
+      terms_and_notes: estimate.terms_and_notes,
+      project_areas: estimate.project_areas?.map(area => ({
+        area_name: area.area_name,
+        area_type: area.area_type,
+        surface_type: area.surface_type,
+        square_footage: area.square_footage,
+        ceiling_height: area.ceiling_height,
+        prep_requirements: area.prep_requirements,
+        paint_type: area.paint_type,
+        paint_brand: area.paint_brand,
+        paint_color: area.paint_color,
+        finish_type: area.finish_type,
+        number_of_coats: area.number_of_coats,
+        labor_hours: area.labor_hours,
+        labor_rate: area.labor_rate,
+        material_cost: area.material_cost,
+        notes: area.notes
+      })) || []
+    };
+
+    setIsCreatingRevision(true);
+  };
+
+  const handleSaveRevision = () => {
+    setIsCreatingRevision(false);
+    onBack(); // Go back to estimates list to see the new revision
   };
 
   if (loading) {
@@ -83,6 +124,42 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
     );
   }
 
+  if (isCreatingRevision && estimate) {
+    const revisionData = {
+      client_id: estimate.client_id,
+      title: `${estimate.title} (Revision ${estimate.revision_number + 1})`,
+      description: estimate.description,
+      valid_until: estimate.valid_until,
+      markup_percentage: estimate.markup_percentage,
+      terms_and_notes: estimate.terms_and_notes,
+      project_areas: estimate.project_areas?.map(area => ({
+        area_name: area.area_name,
+        area_type: area.area_type,
+        surface_type: area.surface_type,
+        square_footage: area.square_footage,
+        ceiling_height: area.ceiling_height,
+        prep_requirements: area.prep_requirements,
+        paint_type: area.paint_type,
+        paint_brand: area.paint_brand,
+        paint_color: area.paint_color,
+        finish_type: area.finish_type,
+        number_of_coats: area.number_of_coats,
+        labor_hours: area.labor_hours,
+        labor_rate: area.labor_rate,
+        material_cost: area.material_cost,
+        notes: area.notes
+      })) || []
+    };
+
+    return (
+      <EstimateForm
+        onSave={handleSaveRevision}
+        onCancel={() => setIsCreatingRevision(false)}
+        initialData={revisionData}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -94,13 +171,33 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
           <ArrowLeft size={20} />
           Back to Estimates
         </button>
-        <button
-          onClick={handleDownloadPDF}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Download size={18} />
-          Download PDF
-        </button>
+        <div className="flex items-center gap-3">
+          {estimate.status === 'draft' && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Edit size={18} />
+              Edit
+            </button>
+          )}
+          {(estimate.status === 'sent' || estimate.status === 'approved') && (
+            <button
+              onClick={handleCreateRevision}
+              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Copy size={18} />
+              Create Revision
+            </button>
+          )}
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download size={18} />
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
