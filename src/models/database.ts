@@ -226,15 +226,26 @@ export class DatabaseManager {
                       VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
 
       // Add job address columns if they don't exist (migration)
-      try {
-        await this.run(`ALTER TABLE clients ADD COLUMN job_address TEXT`);
-        await this.run(`ALTER TABLE clients ADD COLUMN job_city TEXT`);
-        await this.run(`ALTER TABLE clients ADD COLUMN job_state TEXT`);
-        await this.run(`ALTER TABLE clients ADD COLUMN job_zip_code TEXT`);
-        console.log('Added job address columns to clients table');
-      } catch (error) {
-        // Columns likely already exist - this is fine
-        console.log('Job address columns already exist or error adding them:', (error as Error).message);
+      const columnsToAdd = [
+        { name: 'job_address', type: 'TEXT' },
+        { name: 'job_city', type: 'TEXT' },
+        { name: 'job_state', type: 'TEXT' },
+        { name: 'job_zip_code', type: 'TEXT' }
+      ];
+
+      for (const column of columnsToAdd) {
+        try {
+          await this.run(`ALTER TABLE clients ADD COLUMN ${column.name} ${column.type}`);
+          console.log(`✅ Added column: ${column.name}`);
+        } catch (error) {
+          // Column likely already exists - check if it's the expected error
+          const errorMsg = (error as Error).message;
+          if (errorMsg.includes('duplicate column name') || errorMsg.includes('already exists')) {
+            console.log(`ℹ️ Column ${column.name} already exists`);
+          } else {
+            console.error(`❌ Error adding column ${column.name}:`, errorMsg);
+          }
+        }
       }
       
       console.log('Database tables initialized successfully');
