@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, Download, Edit, Copy } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, Download, Edit, Copy, GitBranch, History } from 'lucide-react';
 import { useEstimate, useEstimates } from '../hooks/useEstimates';
 import { generateEstimatePDF } from '../utils/pdfGenerator';
 import EstimateEdit from './EstimateEdit';
 import EstimateForm from './EstimateForm';
+import EstimateVersionHistory from './EstimateVersionHistory';
+import EstimateRevisionForm from './EstimateRevisionForm';
 import { Estimate } from '../services/api';
 
 interface EstimateDetailProps {
@@ -17,6 +19,8 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
   const { createEstimate } = useEstimates();
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [isCreatingRevision, setIsCreatingRevision] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showRevisionForm, setShowRevisionForm] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -87,6 +91,41 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
   const handleSaveRevision = () => {
     setIsCreatingRevision(false);
     onBack(); // Go back to estimates list to see the new revision
+  };
+
+  const handleCreateNewRevision = async (revisionData: any) => {
+    try {
+      const response = await fetch(`/api/estimates/${estimateId}/revisions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(revisionData),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setShowRevisionForm(false);
+        refetch(); // Refresh the current estimate
+        // Optionally show success message
+      } else {
+        throw new Error(result.error || 'Failed to create revision');
+      }
+    } catch (error) {
+      console.error('Error creating revision:', error);
+      // Handle error - could show toast notification
+    }
+  };
+
+  const handleViewVersion = (versionId: number) => {
+    // Navigate to the specific version
+    // For now, we'll just close the history and potentially navigate
+    setShowVersionHistory(false);
+    if (versionId !== estimateId) {
+      // Could navigate to the specific version
+      window.location.href = `/estimates/${versionId}`;
+    }
   };
 
   if (loading) {
@@ -173,7 +212,15 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
           <ArrowLeft size={20} />
           Back to Estimates
         </button>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowVersionHistory(true)}
+            className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            <History size={18} />
+            Version History
+          </button>
+
           {estimate.status === 'draft' && (
             <button
               onClick={() => setIsEditing(true)}
@@ -183,15 +230,27 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
               Edit
             </button>
           )}
+
           {(estimate.status === 'sent' || estimate.status === 'approved') && (
-            <button
-              onClick={handleCreateRevision}
-              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Copy size={18} />
-              Create Revision
-            </button>
+            <>
+              <button
+                onClick={() => setShowRevisionForm(true)}
+                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <GitBranch size={18} />
+                Create Revision
+              </button>
+              
+              <button
+                onClick={handleCreateRevision}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Copy size={18} />
+                Duplicate Estimate
+              </button>
+            </>
           )}
+
           <button
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -210,6 +269,11 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                 <FileText className="text-blue-600" size={28} />
                 {estimate.estimate_number}
+                {estimate.revision_number > 1 && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 text-sm font-semibold rounded">
+                    v{estimate.revision_number}
+                  </span>
+                )}
               </h1>
               <p className="text-lg text-gray-700 mt-1">{estimate.title}</p>
             </div>
@@ -388,6 +452,24 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
           </div>
         )}
       </div>
+
+      {/* Version Control Modals */}
+      {showVersionHistory && (
+        <EstimateVersionHistory
+          estimateId={estimateId}
+          onClose={() => setShowVersionHistory(false)}
+          onViewVersion={handleViewVersion}
+        />
+      )}
+
+      {showRevisionForm && estimate && (
+        <EstimateRevisionForm
+          estimateId={estimateId}
+          currentEstimate={estimate}
+          onSave={handleCreateNewRevision}
+          onCancel={() => setShowRevisionForm(false)}
+        />
+      )}
     </div>
   );
 };

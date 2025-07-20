@@ -239,14 +239,35 @@ app.post('/api/estimates', async (req, res) => {
     const markupAmount = (totalLaborCost + totalMaterialCost) * (markup_percentage / 100);
     const totalAmount = totalLaborCost + totalMaterialCost + markupAmount;
 
+    // Determine version control fields
+    let versionGroupId = null;
+    let actualRevisionNumber = revision_number || 1;
+    let isRevision = false;
+
+    if (parent_estimate_id) {
+      // This is a revision - get the version group from parent
+      const parentEstimate = await db.get('SELECT version_group_id FROM estimates WHERE id = ?', [parent_estimate_id]);
+      if (parentEstimate) {
+        versionGroupId = parentEstimate.version_group_id;
+        isRevision = true;
+        
+        // Get the next revision number
+        const maxRevision = await db.get(
+          'SELECT MAX(revision_number) as max_rev FROM estimates WHERE version_group_id = ?',
+          [versionGroupId]
+        );
+        actualRevisionNumber = (maxRevision?.max_rev || 0) + 1;
+      }
+    }
+
     // Create estimate
     const result = await db.run(`
       INSERT INTO estimates (
         estimate_number, client_id, title, description, total_amount,
         labor_cost, material_cost, markup_percentage, valid_until, terms_and_notes,
-        parent_estimate_id, revision_number
+        parent_estimate_id, revision_number, version_group_id, is_current_version
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       estimateNumber,
       client_id,
@@ -259,7 +280,9 @@ app.post('/api/estimates', async (req, res) => {
       valid_until || null,
       terms_and_notes || null,
       parent_estimate_id || null,
-      revision_number || 1
+      actualRevisionNumber,
+      versionGroupId || `EST-${estimateNumber}-GROUP`,
+      1 // Always current when created
     ]);
 
     const estimateId = result.id;
@@ -294,12 +317,46 @@ app.post('/api/estimates', async (req, res) => {
     }
 
     // Get the created estimate
+    // Create revision tracking record if this is a revision
+    if (isRevision && parent_estimate_id) {
+      const changeDetails = {
+        total_amount_change: totalAmount - (await db.get('SELECT total_amount FROM estimates WHERE id = ?', [parent_estimate_id]))?.total_amount,
+        markup_change: markup_percentage,
+        areas_modified: project_areas.length
+      };
+
+      await db.createEstimateRevision(
+        estimateId,
+        changeDetails,
+        'price_adjustment',
+        `Revision ${actualRevisionNumber}: Price and scope adjustments`,
+        'system'
+      );
+
+      // Mark the previous version as superseded
+      await db.run(
+        'UPDATE estimates SET is_current_version = 0, superseded_by = ?, superseded_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [estimateId, parent_estimate_id]
+      );
+
+      // Log the revision creation
+      await db.logEstimateChange(
+        estimateId,
+        null,
+        'revision_created',
+        null,
+        `Created revision ${actualRevisionNumber}`,
+        'created',
+        'system'
+      );
+    }
+
     const newEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [estimateId]);
 
     res.status(201).json({
       success: true,
       data: newEstimate,
-      message: `Estimate ${estimateNumber} created successfully`
+      message: `Estimate ${estimateNumber} created successfully${isRevision ? ` (Revision ${actualRevisionNumber})` : ''}`
     });
   } catch (error) {
     console.error('Error creating estimate:', error);
@@ -348,6 +405,158 @@ app.get('/api/estimates/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching estimate:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch estimate' });
+  }
+});
+
+// Get estimate revision history
+app.get('/api/estimates/:id/revisions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const revisions = await db.getEstimateRevisionHistory(parseInt(id));
+    
+    res.json({
+      success: true,
+      data: revisions
+    });
+  } catch (error) {
+    console.error('Error getting estimate revisions:', error);
+    res.status(500).json({ success: false, error: 'Failed to get estimate revisions' });
+  }
+});
+
+// Get estimate change log
+app.get('/api/estimates/:id/changelog', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const changelog = await db.all(`
+      SELECT 
+        ecl.*,
+        er.revision_type,
+        er.change_summary
+      FROM estimate_change_log ecl
+      LEFT JOIN estimate_revisions er ON ecl.revision_id = er.id
+      WHERE ecl.estimate_id = ?
+      ORDER BY ecl.changed_at DESC
+    `, [id]);
+    
+    res.json({
+      success: true,
+      data: changelog
+    });
+  } catch (error) {
+    console.error('Error getting estimate changelog:', error);
+    res.status(500).json({ success: false, error: 'Failed to get estimate changelog' });
+  }
+});
+
+// Create estimate revision with enhanced tracking
+app.post('/api/estimates/:id/revisions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      revision_type = 'price_adjustment',
+      change_summary = '',
+      created_by = 'user',
+      changes = {}
+    } = req.body;
+    
+    const revisionId = await db.createEstimateRevision(
+      parseInt(id),
+      changes,
+      revision_type,
+      change_summary,
+      created_by
+    );
+    
+    if (revisionId) {
+      res.status(201).json({
+        success: true,
+        data: { revision_id: revisionId },
+        message: 'Estimate revision created successfully'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Failed to create estimate revision'
+      });
+    }
+  } catch (error) {
+    console.error('Error creating estimate revision:', error);
+    res.status(500).json({ success: false, error: 'Failed to create estimate revision' });
+  }
+});
+
+// Approve estimate revision
+app.post('/api/estimates/:id/revisions/:revisionId/approve', async (req, res) => {
+  try {
+    const { id, revisionId } = req.params;
+    const { approved_by = 'user', notes = '' } = req.body;
+    
+    await db.run(`
+      UPDATE estimate_revisions 
+      SET approval_status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND estimate_id = ?
+    `, [approved_by, revisionId, id]);
+    
+    // Log the approval
+    await db.logEstimateChange(
+      parseInt(id),
+      parseInt(revisionId),
+      'revision_approval',
+      'pending',
+      'approved',
+      'status_change',
+      approved_by
+    );
+    
+    res.json({
+      success: true,
+      message: 'Estimate revision approved successfully'
+    });
+  } catch (error) {
+    console.error('Error approving estimate revision:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve estimate revision' });
+  }
+});
+
+// Get all versions of an estimate (by version group)
+app.get('/api/estimates/:id/versions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the version group ID for this estimate
+    const estimate = await db.get('SELECT version_group_id FROM estimates WHERE id = ?', [id]);
+    if (!estimate) {
+      return res.status(404).json({ success: false, error: 'Estimate not found' });
+    }
+    
+    // Get all versions in this group
+    const versions = await db.all(`
+      SELECT 
+        e.*,
+        c.name as client_name,
+        c.email as client_email,
+        er.revision_type,
+        er.change_summary,
+        er.approval_status,
+        er.approved_by,
+        er.approved_at
+      FROM estimates e
+      LEFT JOIN clients c ON e.client_id = c.id
+      LEFT JOIN estimate_revisions er ON e.id = er.estimate_id
+      WHERE e.version_group_id = ?
+      ORDER BY e.revision_number ASC
+    `, [estimate.version_group_id]);
+    
+    res.json({
+      success: true,
+      data: versions
+    });
+  } catch (error) {
+    console.error('Error getting estimate versions:', error);
+    res.status(500).json({ success: false, error: 'Failed to get estimate versions' });
   }
 });
 

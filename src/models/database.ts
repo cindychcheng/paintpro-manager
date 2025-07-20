@@ -327,6 +327,9 @@ export class DatabaseManager {
       // Enhanced database migration with comprehensive error handling
       await this.performSchemaMigration();
       
+      // Version control enhancement migration
+      await this.performVersionControlMigration();
+      
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -659,6 +662,226 @@ export class DatabaseManager {
       }
     } catch (error) {
       console.error('Error during backup cleanup:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Enhanced version control migration for estimates
+   */
+  private async performVersionControlMigration(): Promise<void> {
+    const migrationName = 'enhance_estimate_version_control';
+    console.log(`🔄 Starting version control migration: ${migrationName}`);
+    
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Create estimate_revisions table for detailed version tracking
+      await this.run(`CREATE TABLE IF NOT EXISTS estimate_revisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        estimate_id INTEGER NOT NULL,
+        revision_number INTEGER NOT NULL,
+        created_by TEXT DEFAULT 'system',
+        revision_type TEXT CHECK (revision_type IN ('initial', 'price_adjustment', 'scope_change', 'client_request', 'correction')) DEFAULT 'price_adjustment',
+        change_summary TEXT,
+        change_details TEXT, -- JSON string of detailed changes
+        previous_total_amount DECIMAL(10,2),
+        new_total_amount DECIMAL(10,2),
+        previous_markup_percentage DECIMAL(5,2),
+        new_markup_percentage DECIMAL(5,2),
+        approval_status TEXT CHECK (approval_status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+        approved_by TEXT,
+        approved_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (estimate_id) REFERENCES estimates (id),
+        UNIQUE(estimate_id, revision_number)
+      )`);
+
+      // Create estimate_change_log for audit trail
+      await this.run(`CREATE TABLE IF NOT EXISTS estimate_change_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        estimate_id INTEGER NOT NULL,
+        revision_id INTEGER,
+        field_name TEXT NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        change_type TEXT CHECK (change_type IN ('created', 'updated', 'deleted', 'status_change')) DEFAULT 'updated',
+        changed_by TEXT DEFAULT 'system',
+        changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (estimate_id) REFERENCES estimates (id),
+        FOREIGN KEY (revision_id) REFERENCES estimate_revisions (id)
+      )`);
+
+      // Add version control fields to estimates table if they don't exist
+      const estimatesTableInfo = await this.all("PRAGMA table_info(estimates)");
+      const existingColumns = estimatesTableInfo.map((col: any) => col.name);
+      
+      const versionControlColumns = [
+        { name: 'is_current_version', type: 'BOOLEAN DEFAULT 1' },
+        { name: 'version_group_id', type: 'TEXT' }, // Groups all versions of the same estimate
+        { name: 'superseded_by', type: 'INTEGER' }, // Points to the revision that replaced this one
+        { name: 'superseded_at', type: 'DATETIME' },
+        { name: 'change_reason', type: 'TEXT' },
+        { name: 'approved_by_client', type: 'BOOLEAN DEFAULT 0' },
+        { name: 'client_approval_date', type: 'DATETIME' }
+      ];
+
+      let addedVersionColumns: string[] = [];
+
+      for (const column of versionControlColumns) {
+        if (!existingColumns.includes(column.name)) {
+          try {
+            await this.run(`ALTER TABLE estimates ADD COLUMN ${column.name} ${column.type}`);
+            addedVersionColumns.push(column.name);
+            console.log(`✅ Added version control column: ${column.name}`);
+          } catch (error) {
+            console.error(`❌ Failed to add column ${column.name}:`, (error as Error).message);
+          }
+        }
+      }
+
+      // Update existing estimates to have version_group_id if they don't have one
+      await this.run(`UPDATE estimates 
+                      SET version_group_id = 'EST-' || id || '-GROUP' 
+                      WHERE version_group_id IS NULL`);
+
+      // Mark migration as completed
+      await this.updateMigrationLog(migrationName, 'completed', {
+        tablesCreated: ['estimate_revisions', 'estimate_change_log'],
+        columnsAdded: addedVersionColumns
+      });
+
+      console.log(`✅ Version control migration '${migrationName}' completed successfully`);
+      if (addedVersionColumns.length > 0) {
+        console.log(`   📋 Added version control columns: ${addedVersionColumns.join(', ')}`);
+      }
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Version control migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing schema`);
+    }
+  }
+
+  /**
+   * Create a new revision of an estimate
+   */
+  public async createEstimateRevision(
+    originalEstimateId: number, 
+    changes: any, 
+    revisionType: string = 'price_adjustment',
+    changeSummary: string = '',
+    createdBy: string = 'system'
+  ): Promise<number | null> {
+    try {
+      // Get the original estimate
+      const originalEstimate = await this.get('SELECT * FROM estimates WHERE id = ?', [originalEstimateId]);
+      if (!originalEstimate) {
+        throw new Error('Original estimate not found');
+      }
+
+      // Get the highest revision number for this estimate group
+      const maxRevision = await this.get(
+        'SELECT MAX(revision_number) as max_rev FROM estimates WHERE version_group_id = ?',
+        [originalEstimate.version_group_id]
+      );
+      const newRevisionNumber = (maxRevision?.max_rev || 0) + 1;
+
+      // Create revision record
+      const revisionResult = await this.run(`
+        INSERT INTO estimate_revisions (
+          estimate_id, revision_number, created_by, revision_type, 
+          change_summary, change_details, previous_total_amount, 
+          new_total_amount, previous_markup_percentage, new_markup_percentage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        originalEstimateId,
+        newRevisionNumber,
+        createdBy,
+        revisionType,
+        changeSummary,
+        JSON.stringify(changes),
+        originalEstimate.total_amount,
+        changes.total_amount || originalEstimate.total_amount,
+        originalEstimate.markup_percentage,
+        changes.markup_percentage || originalEstimate.markup_percentage
+      ]);
+
+      console.log(`✅ Created estimate revision ${newRevisionNumber} for estimate ${originalEstimateId}`);
+      return revisionResult.id;
+    } catch (error) {
+      console.error('Error creating estimate revision:', (error as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Get revision history for an estimate
+   */
+  public async getEstimateRevisionHistory(estimateId: number): Promise<any[]> {
+    try {
+      const estimate = await this.get('SELECT version_group_id FROM estimates WHERE id = ?', [estimateId]);
+      if (!estimate) return [];
+
+      return await this.all(`
+        SELECT 
+          e.*,
+          er.revision_type,
+          er.change_summary,
+          er.change_details,
+          er.created_by,
+          er.approval_status,
+          er.approved_by,
+          er.approved_at
+        FROM estimates e
+        LEFT JOIN estimate_revisions er ON e.id = er.estimate_id
+        WHERE e.version_group_id = ?
+        ORDER BY e.revision_number ASC
+      `, [estimate.version_group_id]);
+    } catch (error) {
+      console.error('Error getting revision history:', (error as Error).message);
+      return [];
+    }
+  }
+
+  /**
+   * Log estimate changes for audit trail
+   */
+  public async logEstimateChange(
+    estimateId: number,
+    revisionId: number | null,
+    fieldName: string,
+    oldValue: any,
+    newValue: any,
+    changeType: string = 'updated',
+    changedBy: string = 'system'
+  ): Promise<void> {
+    try {
+      await this.run(`
+        INSERT INTO estimate_change_log (
+          estimate_id, revision_id, field_name, old_value, new_value, 
+          change_type, changed_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [
+        estimateId,
+        revisionId,
+        fieldName,
+        String(oldValue),
+        String(newValue),
+        changeType,
+        changedBy
+      ]);
+    } catch (error) {
+      console.error('Error logging estimate change:', (error as Error).message);
     }
   }
 }
