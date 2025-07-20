@@ -132,6 +132,8 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
       valid_until: estimate.valid_until,
       markup_percentage: estimate.markup_percentage,
       terms_and_notes: estimate.terms_and_notes,
+      parent_estimate_id: estimate.id,
+      revision_number: estimate.revision_number + 1,
       project_areas: estimate.project_areas?.map(area => ({
         area_name: area.area_name,
         area_type: area.area_type,

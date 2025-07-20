@@ -209,7 +209,9 @@ app.post('/api/estimates', async (req, res) => {
       valid_until,
       markup_percentage = 15,
       terms_and_notes,
-      project_areas
+      project_areas,
+      parent_estimate_id,
+      revision_number
     } = req.body;
 
     // Validation
@@ -241,9 +243,10 @@ app.post('/api/estimates', async (req, res) => {
     const result = await db.run(`
       INSERT INTO estimates (
         estimate_number, client_id, title, description, total_amount,
-        labor_cost, material_cost, markup_percentage, valid_until, terms_and_notes
+        labor_cost, material_cost, markup_percentage, valid_until, terms_and_notes,
+        parent_estimate_id, revision_number
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       estimateNumber,
       client_id,
@@ -254,7 +257,9 @@ app.post('/api/estimates', async (req, res) => {
       totalMaterialCost,
       markup_percentage,
       valid_until || null,
-      terms_and_notes || null
+      terms_and_notes || null,
+      parent_estimate_id || null,
+      revision_number || 1
     ]);
 
     const estimateId = result.id;

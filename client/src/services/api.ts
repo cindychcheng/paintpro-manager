@@ -69,6 +69,8 @@ export interface CreateEstimateRequest {
   markup_percentage?: number;
   terms_and_notes?: string;
   project_areas: Omit<ProjectArea, 'id'>[];
+  parent_estimate_id?: number;
+  revision_number?: number;
 }
 
 export interface Invoice {
