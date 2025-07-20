@@ -236,36 +236,8 @@ export class DatabaseManager {
       await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
                       VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
 
-      // Add job address columns if they don't exist (migration) - SAFE MIGRATION
-      console.log('🔄 Checking database schema for job address columns...');
-      
-      // Check if columns already exist before attempting to add them
-      const tableInfo = await this.all("PRAGMA table_info(clients)");
-      const existingColumns = tableInfo.map((col: any) => col.name);
-      
-      const columnsToAdd = [
-        { name: 'job_address', type: 'TEXT' },
-        { name: 'job_city', type: 'TEXT' },
-        { name: 'job_state', type: 'TEXT' },
-        { name: 'job_zip_code', type: 'TEXT' }
-      ];
-
-      for (const column of columnsToAdd) {
-        if (existingColumns.includes(column.name)) {
-          console.log(`ℹ️ Column ${column.name} already exists - skipping`);
-        } else {
-          try {
-            await this.run(`ALTER TABLE clients ADD COLUMN ${column.name} ${column.type}`);
-            console.log(`✅ Successfully added column: ${column.name}`);
-          } catch (error) {
-            const errorMsg = (error as Error).message;
-            console.error(`❌ Failed to add column ${column.name}:`, errorMsg);
-            // Don't throw - continue with other columns
-          }
-        }
-      }
-      
-      console.log('✅ Database schema migration completed safely');
+      // Enhanced database migration with comprehensive error handling
+      await this.performSchemaMigration();
       
       // Check existing data counts
       try {
@@ -322,6 +294,283 @@ export class DatabaseManager {
         else resolve();
       });
     });
+  }
+
+  /**
+   * Enhanced schema migration with comprehensive error handling and rollback capabilities
+   */
+  private async performSchemaMigration(): Promise<void> {
+    const migrationName = 'add_job_address_columns';
+    console.log(`🔄 Starting schema migration: ${migrationName}`);
+    
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.completed) {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create backup before migration
+      console.log('💾 Creating backup before migration...');
+      const backupPath = await this.createBackup(`pre_migration_${migrationName}_${Date.now()}.db`);
+      if (!backupPath) {
+        console.log('⚠️ Backup creation failed, but continuing with migration');
+      }
+
+      // Clean up old backups
+      await this.cleanupOldBackups();
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Check current schema state
+      const tableInfo = await this.all("PRAGMA table_info(clients)");
+      const existingColumns = tableInfo.map((col: any) => col.name);
+      
+      const columnsToAdd = [
+        { name: 'job_address', type: 'TEXT' },
+        { name: 'job_city', type: 'TEXT' },
+        { name: 'job_state', type: 'TEXT' },
+        { name: 'job_zip_code', type: 'TEXT' }
+      ];
+
+      let addedColumns: string[] = [];
+      let migrationErrors: string[] = [];
+
+      // Begin transaction for atomic migration
+      await this.run('BEGIN TRANSACTION');
+
+      try {
+        for (const column of columnsToAdd) {
+          if (existingColumns.includes(column.name)) {
+            console.log(`ℹ️ Column ${column.name} already exists - skipping`);
+          } else {
+            try {
+              await this.run(`ALTER TABLE clients ADD COLUMN ${column.name} ${column.type}`);
+              addedColumns.push(column.name);
+              console.log(`✅ Successfully added column: ${column.name}`);
+            } catch (error) {
+              const errorMsg = (error as Error).message;
+              console.error(`❌ Failed to add column ${column.name}:`, errorMsg);
+              migrationErrors.push(`Column ${column.name}: ${errorMsg}`);
+              
+              // If this is a critical error (not just "column already exists"), rollback
+              if (!errorMsg.includes('duplicate column name')) {
+                throw new Error(`Critical migration error for column ${column.name}: ${errorMsg}`);
+              }
+            }
+          }
+        }
+
+        // Commit transaction if successful
+        await this.run('COMMIT');
+        
+        // Mark migration as completed
+        await this.updateMigrationLog(migrationName, 'completed', {
+          addedColumns,
+          errors: migrationErrors
+        });
+
+        console.log(`✅ Migration '${migrationName}' completed successfully`);
+        if (addedColumns.length > 0) {
+          console.log(`   📋 Added columns: ${addedColumns.join(', ')}`);
+        }
+        if (migrationErrors.length > 0) {
+          console.log(`   ⚠️ Non-critical errors: ${migrationErrors.length}`);
+        }
+
+      } catch (error) {
+        // Rollback transaction on error
+        await this.run('ROLLBACK');
+        
+        await this.updateMigrationLog(migrationName, 'failed', {
+          error: (error as Error).message,
+          addedColumns,
+          errors: migrationErrors
+        });
+
+        console.error(`❌ Migration '${migrationName}' failed and was rolled back:`, (error as Error).message);
+        
+        // Don't throw - allow application to continue with existing schema
+        console.log(`🔄 Continuing with existing database schema`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Critical error during migration setup:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing database schema`);
+    }
+  }
+
+  /**
+   * Check if a migration has been applied
+   */
+  private async checkMigrationStatus(migrationName: string): Promise<any> {
+    try {
+      // Create migrations table if it doesn't exist
+      await this.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        migration_name TEXT UNIQUE NOT NULL,
+        status TEXT NOT NULL,
+        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME,
+        details TEXT
+      )`);
+
+      return await this.get('SELECT * FROM schema_migrations WHERE migration_name = ?', [migrationName]);
+    } catch (error) {
+      console.error('Error checking migration status:', (error as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Create a migration log entry
+   */
+  private async createMigrationLog(migrationName: string, status: string): Promise<void> {
+    try {
+      await this.run(
+        'INSERT OR REPLACE INTO schema_migrations (migration_name, status) VALUES (?, ?)',
+        [migrationName, status]
+      );
+    } catch (error) {
+      console.error('Error creating migration log:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Update migration log with completion status and details
+   */
+  private async updateMigrationLog(migrationName: string, status: string, details: any): Promise<void> {
+    try {
+      await this.run(
+        'UPDATE schema_migrations SET status = ?, completed_at = CURRENT_TIMESTAMP, details = ? WHERE migration_name = ?',
+        [status, JSON.stringify(details), migrationName]
+      );
+    } catch (error) {
+      console.error('Error updating migration log:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Create a backup of the database before performing migrations
+   */
+  public async createBackup(backupName?: string): Promise<string | null> {
+    try {
+      const fs = require('fs');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupFileName = backupName || `painting_business_backup_${timestamp}.db`;
+      
+      // Determine backup path based on environment
+      let backupPath: string;
+      if (process.env.NODE_ENV === 'production') {
+        // In production, try /app/backups first, fallback to /tmp
+        const primaryBackupDir = '/app/backups';
+        const fallbackBackupDir = '/tmp/backups';
+        
+        try {
+          if (!fs.existsSync(primaryBackupDir)) {
+            fs.mkdirSync(primaryBackupDir, { recursive: true });
+          }
+          backupPath = path.join(primaryBackupDir, backupFileName);
+        } catch (error) {
+          console.log('⚠️ Cannot create /app/backups, using /tmp/backups');
+          if (!fs.existsSync(fallbackBackupDir)) {
+            fs.mkdirSync(fallbackBackupDir, { recursive: true });
+          }
+          backupPath = path.join(fallbackBackupDir, backupFileName);
+        }
+      } else {
+        // In development, use local backups directory
+        backupPath = path.join(process.cwd(), 'backups', backupFileName);
+      }
+
+      // Create backups directory if it doesn't exist
+      const backupDir = path.dirname(backupPath);
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+        console.log(`📁 Created backup directory: ${backupDir}`);
+      }
+
+      // Copy database file
+      fs.copyFileSync(DB_PATH, backupPath);
+      
+      const stats = fs.statSync(backupPath);
+      console.log(`💾 Database backup created: ${backupPath} (${stats.size} bytes)`);
+      
+      // Log backup in database
+      await this.logBackup(backupFileName, backupPath, stats.size);
+      
+      return backupPath;
+    } catch (error) {
+      console.error('❌ Failed to create database backup:', (error as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Log backup information in database
+   */
+  private async logBackup(fileName: string, filePath: string, fileSize: number): Promise<void> {
+    try {
+      // Create backups table if it doesn't exist
+      await this.run(`CREATE TABLE IF NOT EXISTS database_backups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        backup_name TEXT NOT NULL,
+        backup_path TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT
+      )`);
+
+      await this.run(
+        'INSERT INTO database_backups (backup_name, backup_path, file_size) VALUES (?, ?, ?)',
+        [fileName, filePath, fileSize]
+      );
+    } catch (error) {
+      console.error('Error logging backup:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Get list of available backups
+   */
+  public async getBackupList(): Promise<any[]> {
+    try {
+      return await this.all('SELECT * FROM database_backups ORDER BY created_at DESC LIMIT 10');
+    } catch (error) {
+      console.error('Error retrieving backup list:', (error as Error).message);
+      return [];
+    }
+  }
+
+  /**
+   * Clean up old backups (keep only last 5)
+   */
+  public async cleanupOldBackups(): Promise<void> {
+    try {
+      const fs = require('fs');
+      const backups = await this.all('SELECT * FROM database_backups ORDER BY created_at DESC');
+      
+      if (backups.length > 5) {
+        const oldBackups = backups.slice(5);
+        
+        for (const backup of oldBackups) {
+          try {
+            if (fs.existsSync(backup.backup_path)) {
+              fs.unlinkSync(backup.backup_path);
+              console.log(`🗑️ Removed old backup: ${backup.backup_name}`);
+            }
+            
+            await this.run('DELETE FROM database_backups WHERE id = ?', [backup.id]);
+          } catch (error) {
+            console.error(`Error removing backup ${backup.backup_name}:`, (error as Error).message);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error during backup cleanup:', (error as Error).message);
+    }
   }
 }
 
