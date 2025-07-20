@@ -18,32 +18,54 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app build
-const possiblePaths = process.env.NODE_ENV === 'production' 
-  ? [
-      process.cwd(), // Files copied to root
-      path.join(process.cwd(), 'public'),
-      path.join(process.cwd(), 'client/dist'),
-      path.join(process.cwd(), 'dist/client/dist'),
-      path.join(__dirname, '../client/dist')
-    ]
-  : [path.join(__dirname, '../client/dist')];
-
 let clientBuildPath = '';
-for (const testPath of possiblePaths) {
-  const indexPath = path.join(testPath, 'index.html');
-  console.log(`Testing static path: ${testPath} - index.html exists: ${fs.existsSync(indexPath)}`);
-  if (fs.existsSync(indexPath)) {
-    clientBuildPath = testPath;
-    break;
+
+if (process.env.NODE_ENV === 'production') {
+  // In production (Railway), try these paths
+  const possiblePaths = [
+    path.join(process.cwd(), 'client/dist'),
+    path.join(process.cwd(), 'dist/client/dist'),
+    path.join(__dirname, '../client/dist'),
+    path.join(__dirname, '../../client/dist')
+  ];
+  
+  for (const testPath of possiblePaths) {
+    const indexPath = path.join(testPath, 'index.html');
+    console.log(`Testing static path: ${testPath} - index.html exists: ${fs.existsSync(indexPath)}`);
+    if (fs.existsSync(indexPath)) {
+      clientBuildPath = testPath;
+      console.log(`✅ Found client build files at: ${clientBuildPath}`);
+      break;
+    }
   }
+  
+  if (!clientBuildPath) {
+    console.error('❌ No valid static file path found in production!');
+    console.error('Available files in working directory:');
+    try {
+      fs.readdirSync(process.cwd()).forEach(file => {
+        const filePath = path.join(process.cwd(), file);
+        const stats = fs.statSync(filePath);
+        console.error(`  ${file} ${stats.isDirectory() ? '(dir)' : `(${stats.size} bytes)`}`);
+        if (stats.isDirectory() && file === 'client') {
+          try {
+            fs.readdirSync(filePath).forEach(subFile => {
+              console.error(`    client/${subFile}`);
+            });
+          } catch (e) {}
+        }
+      });
+    } catch (e) {
+      console.error('Error listing directory:', e);
+    }
+    clientBuildPath = possiblePaths[0]; // fallback
+  }
+} else {
+  // Development
+  clientBuildPath = path.join(__dirname, '../client/dist');
 }
 
-if (!clientBuildPath) {
-  console.error('No valid static file path found!');
-  clientBuildPath = possiblePaths[0]; // fallback
-}
-
-console.log(`Using static files from: ${clientBuildPath}`);
+console.log(`🚀 Serving static files from: ${clientBuildPath}`);
 app.use(express.static(clientBuildPath));
 
 // Health check
@@ -758,34 +780,26 @@ app.delete('/api/payments/:id', async (req, res) => {
 // Catch-all handler: send back React's index.html file for any non-API routes
 app.get('*', (req, res) => {
   const indexPath = path.join(clientBuildPath, 'index.html');
-  console.log(`Serving index.html from: ${indexPath}`);
-  console.log(`Index.html exists: ${fs.existsSync(indexPath)}`);
+  console.log(`📄 Serving index.html from: ${indexPath}`);
   
   if (fs.existsSync(indexPath)) {
+    console.log(`✅ Index.html found, serving React app`);
     res.sendFile(indexPath);
   } else {
-    // Try to find index.html in any of the possible paths
-    const allPossibleIndexPaths = possiblePaths.map(p => path.join(p, 'index.html'));
-    const workingIndexPath = allPossibleIndexPaths.find(p => fs.existsSync(p));
-    
-    if (workingIndexPath) {
-      console.log(`Found index.html at: ${workingIndexPath}`);
-      res.sendFile(workingIndexPath);
-    } else {
-      res.status(404).send(`
-        <html>
-          <body>
-            <h1>Static files not found</h1>
-            <p>Looking for: ${indexPath}</p>
-            <p>Client build path: ${clientBuildPath}</p>
-            <p>Working directory: ${process.cwd()}</p>
-            <p>Environment: ${process.env.NODE_ENV}</p>
-            <p>Tested paths: ${possiblePaths.join(', ')}</p>
-            <p>All index paths tested: ${allPossibleIndexPaths.join(', ')}</p>
-          </body>
-        </html>
-      `);
-    }
+    console.error(`❌ Index.html not found at: ${indexPath}`);
+    res.status(404).send(`
+      <html>
+        <body>
+          <h1>React App Not Found</h1>
+          <p>Looking for index.html at: ${indexPath}</p>
+          <p>Client build path: ${clientBuildPath}</p>
+          <p>Working directory: ${process.cwd()}</p>
+          <p>Environment: ${process.env.NODE_ENV}</p>
+          <hr>
+          <p>This diagnostic page means the Express server is running but can't find the React build files.</p>
+        </body>
+      </html>
+    `);
   }
 });
 
