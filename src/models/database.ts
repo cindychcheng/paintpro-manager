@@ -817,9 +817,11 @@ export class DatabaseManager {
       ]);
 
       console.log(`✅ Created estimate revision ${newRevisionNumber} for estimate ${originalEstimateId}`);
-      return revisionResult.id;
+      console.log('Revision result:', revisionResult);
+      return revisionResult.lastID || revisionResult.id;
     } catch (error) {
       console.error('Error creating estimate revision:', (error as Error).message);
+      console.error('Full error:', error);
       return null;
     }
   }
