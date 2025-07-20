@@ -204,8 +204,10 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
               </div>
 
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Created</p>
-                <p className="text-slate-600">{formatDate(estimate.created_at)}</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Status</p>
+                <div className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(estimate.status)}`}>
+                  {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
+                </div>
               </div>
             </div>
 
