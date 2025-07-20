@@ -44,7 +44,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSave, onCancel, clientId }) =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sameAsJobAddress, setSameAsJobAddress] = useState(false);
 
-  const { createClient, updateClient, getClient } = useClients();
+  const { createClient, updateClient, getClient, error: hookError } = useClients();
 
   // Load client data if editing
   useEffect(() => {
@@ -143,7 +143,9 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSave, onCancel, clientId }) =
       if (success) {
         onSave();
       } else {
-        setErrors({ submit: 'Failed to save client. Please try again.' });
+        // Use the actual error message from the hook if available
+        const errorMessage = hookError || 'Failed to save client. Please try again.';
+        setErrors({ submit: errorMessage });
       }
     } catch (error) {
       setErrors({ submit: 'An error occurred while saving the client.' });
