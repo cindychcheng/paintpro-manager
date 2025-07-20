@@ -5,20 +5,24 @@ import EstimateDetail from './components/EstimateDetail';
 import InvoiceList from './components/InvoiceList';
 import InvoiceDetail from './components/InvoiceDetail';
 import PaymentForm from './components/PaymentForm';
+import ClientList from './components/ClientList';
+import ClientForm from './components/ClientForm';
 import { Home } from 'lucide-react';
 import { useEstimates } from './hooks/useEstimates';
 import { useInvoices } from './hooks/useInvoices';
 import { CreateEstimateRequest, Invoice, RecordPaymentRequest } from './services/api';
 
-type View = 'dashboard' | 'estimates' | 'estimate-form' | 'estimate-detail' | 'invoices' | 'invoice-detail' | 'clients';
+type View = 'dashboard' | 'estimates' | 'estimate-form' | 'estimate-detail' | 'invoices' | 'invoice-detail' | 'clients' | 'client-form' | 'client-detail';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedEstimateId, setSelectedEstimateId] = useState<number | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
   const [isEstimateEditing, setIsEstimateEditing] = useState(false);
   const [isInvoiceEditing, setIsInvoiceEditing] = useState(false);
+  const [isClientEditing, setIsClientEditing] = useState(false);
   
   // Get estimates and invoices for dashboard stats
   const { estimates: dashboardEstimates } = useEstimates({ limit: 100 });
@@ -88,6 +92,24 @@ function App() {
     setCurrentView('estimates'); // Navigate to estimates to select one to convert
   };
 
+  const handleCreateClient = () => {
+    setSelectedClientId(null);
+    setIsClientEditing(false);
+    setCurrentView('client-form');
+  };
+
+  const handleViewClient = (id: number) => {
+    setSelectedClientId(id);
+    setIsClientEditing(false);
+    setCurrentView('client-detail');
+  };
+
+  const handleEditClient = (id: number) => {
+    setSelectedClientId(id);
+    setIsClientEditing(true);
+    setCurrentView('client-form');
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'estimates':
@@ -152,9 +174,41 @@ function App() {
         );
       case 'clients':
         return (
+          <ClientList
+            onCreateNew={handleCreateClient}
+            onViewClient={handleViewClient}
+            onEditClient={handleEditClient}
+          />
+        );
+      case 'client-form':
+        return (
+          <ClientForm
+            onSave={() => setCurrentView('clients')}
+            onCancel={() => setCurrentView('clients')}
+            clientId={isClientEditing ? selectedClientId : null}
+          />
+        );
+      case 'client-detail':
+        return selectedClientId ? (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Clients</h2>
-            <p className="text-gray-600">Client management would go here</p>
+            <h2 className="text-2xl font-bold mb-4">Client Details</h2>
+            <p className="text-gray-600">Client detail view would go here</p>
+            <button 
+              onClick={() => setCurrentView('clients')}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Back to Clients
+            </button>
+          </div>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <p className="text-red-600">No client selected</p>
+            <button 
+              onClick={() => setCurrentView('clients')}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Back to Clients
+            </button>
           </div>
         );
       default:
@@ -386,7 +440,7 @@ function App() {
               <button
                 onClick={() => setCurrentView('clients')}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                  currentView === 'clients' 
+                  currentView === 'clients' || currentView === 'client-form' || currentView === 'client-detail' 
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25' 
                     : 'text-slate-300 hover:text-white hover:bg-white/10 backdrop-blur-sm'
                 }`}

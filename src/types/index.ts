@@ -8,6 +8,10 @@ export interface Client {
   city?: string;
   state?: string;
   zip_code?: string;
+  job_address?: string;
+  job_city?: string;
+  job_state?: string;
+  job_zip_code?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -181,6 +185,10 @@ export interface CreateClientRequest {
   city?: string;
   state?: string;
   zip_code?: string;
+  job_address?: string;
+  job_city?: string;
+  job_state?: string;
+  job_zip_code?: string;
   notes?: string;
 }
 

@@ -12,6 +12,11 @@ export interface Client {
   city?: string;
   state?: string;
   zip_code?: string;
+  job_address?: string;
+  job_city?: string;
+  job_state?: string;
+  job_zip_code?: string;
+  notes?: string;
 }
 
 export interface ProjectArea {
@@ -181,6 +186,23 @@ class ApiService {
     return this.request('/clients', {
       method: 'POST',
       body: JSON.stringify(clientData),
+    });
+  }
+
+  async getClient(id: number): Promise<ApiResponse<Client>> {
+    return this.request(`/clients/${id}`);
+  }
+
+  async updateClient(id: number, clientData: Omit<Client, 'id'>): Promise<ApiResponse<Client>> {
+    return this.request(`/clients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(clientData),
+    });
+  }
+
+  async deleteClient(id: number): Promise<ApiResponse> {
+    return this.request(`/clients/${id}`, {
+      method: 'DELETE',
     });
   }
 

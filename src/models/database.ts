@@ -35,6 +35,10 @@ export class DatabaseManager {
         city TEXT,
         state TEXT,
         zip_code TEXT,
+        job_address TEXT,
+        job_city TEXT,
+        job_state TEXT,
+        job_zip_code TEXT,
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -220,6 +224,18 @@ export class DatabaseManager {
                       VALUES ('estimate', 0, 'EST-', 'EST-XXXX')`);
       await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
                       VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
+
+      // Add job address columns if they don't exist (migration)
+      try {
+        await this.run(`ALTER TABLE clients ADD COLUMN job_address TEXT`);
+        await this.run(`ALTER TABLE clients ADD COLUMN job_city TEXT`);
+        await this.run(`ALTER TABLE clients ADD COLUMN job_state TEXT`);
+        await this.run(`ALTER TABLE clients ADD COLUMN job_zip_code TEXT`);
+        console.log('Added job address columns to clients table');
+      } catch (error) {
+        // Columns likely already exist - this is fine
+        console.log('Job address columns already exist or error adding them:', (error as Error).message);
+      }
       
       console.log('Database tables initialized successfully');
     } catch (error) {
