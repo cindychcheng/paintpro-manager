@@ -5,7 +5,12 @@ import { db } from './models/database';
 import { NumberService } from './services/numberService';
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = parseInt(process.env.PORT || '5001', 10);
+
+// Set NODE_ENV if not set
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
 
 // Middleware
 app.use(cors());
@@ -729,14 +734,26 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
+// Error handling
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception thrown:', error);
+  process.exit(1);
+});
+
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🎨 PaintPro Manager Server running on port ${PORT}`);
   console.log(`📊 API Health: http://localhost:${PORT}/api/health`);
   console.log(`📋 Estimates: http://localhost:${PORT}/api/estimates`);
   console.log(`💰 Invoices: http://localhost:${PORT}/api/invoices`);
   console.log(`👥 Clients: http://localhost:${PORT}/api/clients`);
   console.log(`\n🚀 App available at: http://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Database path: ${process.env.NODE_ENV === 'production' ? '/app/painting_business.db' : 'painting_business.db'}`);
 });
 
 export default app;

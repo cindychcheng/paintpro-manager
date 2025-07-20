@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ['nodejs_18', 'npm-9_x']
+nixPkgs = ['nodejs_20', 'npm-10_x']
 
 [phases.install]
 cmds = [
@@ -11,7 +11,8 @@ cmds = [
 cmds = [
   'npm run client:install',
   'npm run client:build-only',
-  'npx tsc src/simple-app.ts --outDir dist --target ES2020 --module commonjs --esModuleInterop true --allowSyntheticDefaultImports true --strict true --skipLibCheck true --resolveJsonModule true'
+  'npx tsc src/simple-app.ts --outDir dist --target ES2020 --module commonjs --esModuleInterop true --allowSyntheticDefaultImports true --strict true --skipLibCheck true --resolveJsonModule true',
+  'mkdir -p /app'
 ]
 
 [start]

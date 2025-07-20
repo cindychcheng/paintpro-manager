@@ -2,18 +2,29 @@ import sqlite3 from 'sqlite3';
 import { Database } from 'sqlite3';
 import path from 'path';
 
-const DB_PATH = path.join(process.cwd(), 'painting_business.db');
+const DB_PATH = process.env.NODE_ENV === 'production' 
+  ? path.join('/app', 'painting_business.db')
+  : path.join(process.cwd(), 'painting_business.db');
 
 export class DatabaseManager {
   private db: Database;
 
   constructor() {
-    this.db = new sqlite3.Database(DB_PATH);
+    console.log(`Initializing database at: ${DB_PATH}`);
+    this.db = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) {
+        console.error('Error opening database:', err);
+        throw err;
+      }
+      console.log('Database connected successfully');
+    });
     this.initializeTables();
   }
 
   private async initializeTables(): Promise<void> {
-    const queries = [
+    try {
+      console.log('Initializing database tables...');
+      const queries = [
       // Clients table
       `CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,11 +215,17 @@ export class DatabaseManager {
       await this.run(query);
     }
 
-    // Initialize sequences if not exists
-    await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
-                    VALUES ('estimate', 0, 'EST-', 'EST-XXXX')`);
-    await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
-                    VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
+      // Initialize sequences if not exists
+      await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
+                      VALUES ('estimate', 0, 'EST-', 'EST-XXXX')`);
+      await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
+                      VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
+      
+      console.log('Database tables initialized successfully');
+    } catch (error) {
+      console.error('Error initializing database tables:', error);
+      throw error;
+    }
   }
 
   public run(query: string, params: any[] = []): Promise<any> {
