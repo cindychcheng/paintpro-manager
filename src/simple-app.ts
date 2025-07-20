@@ -477,6 +477,27 @@ app.post('/api/test-revision/:id', async (req, res) => {
 
 // Create estimate revision with enhanced tracking
 app.post('/api/estimates/:id/revisions', async (req, res) => {
+  // EXTREMELY SIMPLE TEST - just return success
+  try {
+    const { id } = req.params;
+    console.log('Received revision request for estimate:', id);
+    
+    res.json({
+      success: true,
+      message: 'Revision endpoint reached successfully',
+      estimateId: id
+    });
+  } catch (error) {
+    console.error('Even simple response failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Simple response failed'
+    });
+  }
+  return; // Exit early
+  
+  // OLD CODE BELOW (unreachable)
+  /*
   try {
     const { id } = req.params;
     const { 
@@ -665,6 +686,7 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
       details: (error as Error).message 
     });
   }
+  */
 });
 
 // Approve estimate revision
