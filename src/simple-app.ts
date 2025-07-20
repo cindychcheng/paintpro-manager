@@ -462,6 +462,9 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
       changes = {}
     } = req.body;
 
+    console.log('Creating revision for estimate:', id);
+    console.log('Revision data:', { revision_type, change_summary, created_by, changes });
+
     // Get the current estimate
     const currentEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
     if (!currentEstimate) {
@@ -490,9 +493,12 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
 
       // Update project areas if provided
       if (changes.project_areas && Array.isArray(changes.project_areas)) {
+        console.log('Updating project areas:', changes.project_areas.length, 'areas');
+        
         // Update each project area
         for (let i = 0; i < changes.project_areas.length; i++) {
           const area = changes.project_areas[i];
+          console.log(`Processing area ${i}:`, area);
           
           // Get the current project area to compare changes
           const currentArea = await db.get(`
@@ -501,6 +507,8 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
             ORDER BY created_at ASC 
             LIMIT 1 OFFSET ?
           `, [id, i]);
+          
+          console.log(`Current area ${i}:`, currentArea);
 
           if (currentArea) {
             const areaUpdates = [];
@@ -680,13 +688,18 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
 
     } catch (error) {
       // Rollback on error
+      console.error('Error in revision transaction:', error);
       await db.run('ROLLBACK');
       throw error;
     }
 
   } catch (error) {
     console.error('Error creating estimate revision:', error);
-    res.status(500).json({ success: false, error: 'Failed to create estimate revision' });
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create estimate revision',
+      details: (error as Error).message 
+    });
   }
 });
 
