@@ -10,13 +10,24 @@ export class DatabaseManager {
   private db: Database;
 
   constructor() {
-    console.log(`Initializing database at: ${DB_PATH}`);
+    console.log(`🗄️ Initializing database at: ${DB_PATH}`);
+    
+    // Check if database file exists
+    const fs = require('fs');
+    const dbExists = fs.existsSync(DB_PATH);
+    console.log(`📊 Database file exists: ${dbExists}`);
+    
+    if (dbExists) {
+      const stats = fs.statSync(DB_PATH);
+      console.log(`📈 Database file size: ${stats.size} bytes`);
+    }
+    
     this.db = new sqlite3.Database(DB_PATH, (err) => {
       if (err) {
-        console.error('Error opening database:', err);
+        console.error('❌ Error opening database:', err);
         throw err;
       }
-      console.log('Database connected successfully');
+      console.log('✅ Database connected successfully');
     });
     this.initializeTables();
   }
@@ -225,7 +236,13 @@ export class DatabaseManager {
       await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
                       VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
 
-      // Add job address columns if they don't exist (migration)
+      // Add job address columns if they don't exist (migration) - SAFE MIGRATION
+      console.log('🔄 Checking database schema for job address columns...');
+      
+      // Check if columns already exist before attempting to add them
+      const tableInfo = await this.all("PRAGMA table_info(clients)");
+      const existingColumns = tableInfo.map((col: any) => col.name);
+      
       const columnsToAdd = [
         { name: 'job_address', type: 'TEXT' },
         { name: 'job_city', type: 'TEXT' },
@@ -234,21 +251,37 @@ export class DatabaseManager {
       ];
 
       for (const column of columnsToAdd) {
-        try {
-          await this.run(`ALTER TABLE clients ADD COLUMN ${column.name} ${column.type}`);
-          console.log(`✅ Added column: ${column.name}`);
-        } catch (error) {
-          // Column likely already exists - check if it's the expected error
-          const errorMsg = (error as Error).message;
-          if (errorMsg.includes('duplicate column name') || errorMsg.includes('already exists')) {
-            console.log(`ℹ️ Column ${column.name} already exists`);
-          } else {
-            console.error(`❌ Error adding column ${column.name}:`, errorMsg);
+        if (existingColumns.includes(column.name)) {
+          console.log(`ℹ️ Column ${column.name} already exists - skipping`);
+        } else {
+          try {
+            await this.run(`ALTER TABLE clients ADD COLUMN ${column.name} ${column.type}`);
+            console.log(`✅ Successfully added column: ${column.name}`);
+          } catch (error) {
+            const errorMsg = (error as Error).message;
+            console.error(`❌ Failed to add column ${column.name}:`, errorMsg);
+            // Don't throw - continue with other columns
           }
         }
       }
       
-      console.log('Database tables initialized successfully');
+      console.log('✅ Database schema migration completed safely');
+      
+      // Check existing data counts
+      try {
+        const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
+        const estimateCount = await this.get('SELECT COUNT(*) as count FROM estimates');
+        const invoiceCount = await this.get('SELECT COUNT(*) as count FROM invoices');
+        
+        console.log('📊 Current data counts:');
+        console.log(`   👥 Clients: ${clientCount?.count || 0}`);
+        console.log(`   📋 Estimates: ${estimateCount?.count || 0}`);
+        console.log(`   💰 Invoices: ${invoiceCount?.count || 0}`);
+      } catch (error) {
+        console.log('⚠️ Could not check data counts:', (error as Error).message);
+      }
+      
+      console.log('✅ Database tables initialized successfully');
     } catch (error) {
       console.error('Error initializing database tables:', error);
       throw error;
