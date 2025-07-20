@@ -2,11 +2,53 @@ import sqlite3 from 'sqlite3';
 import { Database } from 'sqlite3';
 import path from 'path';
 
-// Use Railway's persistent volume for database storage in production
-// Railway automatically sets RAILWAY_VOLUME_MOUNT_PATH when volumes are configured
-const DB_PATH = process.env.NODE_ENV === 'production' 
-  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'painting_business.db')
-  : path.join(process.cwd(), 'painting_business.db');
+// Determine database path with fallback logic for Railway
+function getDatabasePath(): string {
+  if (process.env.NODE_ENV === 'production') {
+    const fs = require('fs');
+    
+    // Try Railway volume mount path first
+    const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+    if (volumePath) {
+      const volumeDbPath = path.join(volumePath, 'painting_business.db');
+      try {
+        // Ensure the directory exists
+        fs.mkdirSync(path.dirname(volumeDbPath), { recursive: true });
+        return volumeDbPath;
+      } catch (error) {
+        console.error('❌ Cannot use volume path:', (error as Error).message);
+      }
+    }
+    
+    // Try /data directory
+    try {
+      const dataPath = '/data';
+      fs.mkdirSync(dataPath, { recursive: true });
+      return path.join(dataPath, 'painting_business.db');
+    } catch (error) {
+      console.error('❌ Cannot create /data directory:', (error as Error).message);
+    }
+    
+    // Try /tmp as fallback (writable but not persistent)
+    try {
+      const tmpPath = '/tmp';
+      fs.mkdirSync(tmpPath, { recursive: true });
+      console.log('⚠️ Using /tmp for database (data will not persist between deployments)');
+      return path.join(tmpPath, 'painting_business.db');
+    } catch (error) {
+      console.error('❌ Cannot use /tmp directory:', (error as Error).message);
+    }
+    
+    // Final fallback to /app
+    console.log('⚠️ Using /app for database (data will not persist between deployments)');
+    return path.join('/app', 'painting_business.db');
+  }
+  
+  // Development
+  return path.join(process.cwd(), 'painting_business.db');
+}
+
+const DB_PATH = getDatabasePath();
 
 export class DatabaseManager {
   private db: Database;
@@ -18,6 +60,16 @@ export class DatabaseManager {
     if (process.env.NODE_ENV === 'production') {
       console.log(`🔗 Railway volume mount path: ${process.env.RAILWAY_VOLUME_MOUNT_PATH || 'NOT SET'}`);
       console.log(`📁 Production data directory: ${path.dirname(DB_PATH)}`);
+      
+      // Check directory permissions
+      const fs = require('fs');
+      const dbDir = path.dirname(DB_PATH);
+      try {
+        fs.accessSync(dbDir, fs.constants.W_OK);
+        console.log(`✅ Directory ${dbDir} is writable`);
+      } catch (error) {
+        console.error(`❌ Directory ${dbDir} is not writable:`, (error as Error).message);
+      }
     }
     
     // Check if database file exists
@@ -30,12 +82,40 @@ export class DatabaseManager {
       console.log(`📈 Database file size: ${stats.size} bytes`);
     }
     
+    // Ensure the database directory exists before creating the database
+    const dbDir = path.dirname(DB_PATH);
+    try {
+      fs.mkdirSync(dbDir, { recursive: true });
+    } catch (error) {
+      console.error('❌ Could not create database directory:', (error as Error).message);
+    }
+    
     this.db = new sqlite3.Database(DB_PATH, (err) => {
       if (err) {
         console.error('❌ Error opening database:', err);
-        throw err;
+        console.error('❌ Database path:', DB_PATH);
+        console.error('❌ Directory exists:', fs.existsSync(dbDir));
+        console.error('❌ Directory writable:', (() => {
+          try {
+            fs.accessSync(dbDir, fs.constants.W_OK);
+            return true;
+          } catch {
+            return false;
+          }
+        })());
+        
+        // Don't throw - try to continue with in-memory database
+        console.log('🔄 Attempting fallback to in-memory database...');
+        this.db = new sqlite3.Database(':memory:', (memErr) => {
+          if (memErr) {
+            console.error('❌ Even in-memory database failed:', memErr);
+            throw memErr;
+          }
+          console.log('⚠️ Using in-memory database (data will not persist)');
+        });
+      } else {
+        console.log('✅ Database connected successfully');
       }
-      console.log('✅ Database connected successfully');
     });
     this.initializeTables();
   }
