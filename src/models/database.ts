@@ -2,8 +2,10 @@ import sqlite3 from 'sqlite3';
 import { Database } from 'sqlite3';
 import path from 'path';
 
+// Use Railway's persistent volume for database storage in production
+// Railway automatically sets RAILWAY_VOLUME_MOUNT_PATH when volumes are configured
 const DB_PATH = process.env.NODE_ENV === 'production' 
-  ? path.join('/app', 'painting_business.db')
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'painting_business.db')
   : path.join(process.cwd(), 'painting_business.db');
 
 export class DatabaseManager {
@@ -11,6 +13,12 @@ export class DatabaseManager {
 
   constructor() {
     console.log(`🗄️ Initializing database at: ${DB_PATH}`);
+    
+    // Log volume mount information in production
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`🔗 Railway volume mount path: ${process.env.RAILWAY_VOLUME_MOUNT_PATH || 'NOT SET'}`);
+      console.log(`📁 Production data directory: ${path.dirname(DB_PATH)}`);
+    }
     
     // Check if database file exists
     const fs = require('fs');
@@ -464,8 +472,9 @@ export class DatabaseManager {
       // Determine backup path based on environment
       let backupPath: string;
       if (process.env.NODE_ENV === 'production') {
-        // In production, try /app/backups first, fallback to /tmp
-        const primaryBackupDir = '/app/backups';
+        // In production, use Railway persistent volume for backups
+        const volumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data';
+        const primaryBackupDir = path.join(volumePath, 'backups');
         const fallbackBackupDir = '/tmp/backups';
         
         try {
@@ -474,7 +483,7 @@ export class DatabaseManager {
           }
           backupPath = path.join(primaryBackupDir, backupFileName);
         } catch (error) {
-          console.log('⚠️ Cannot create /app/backups, using /tmp/backups');
+          console.log('⚠️ Cannot create volume backups, using /tmp/backups');
           if (!fs.existsSync(fallbackBackupDir)) {
             fs.mkdirSync(fallbackBackupDir, { recursive: true });
           }
