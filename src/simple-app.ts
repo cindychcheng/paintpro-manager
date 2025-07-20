@@ -488,23 +488,125 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
         throw new Error('Failed to create revision record');
       }
 
+      // Update project areas if provided
+      if (changes.project_areas && Array.isArray(changes.project_areas)) {
+        // Update each project area
+        for (let i = 0; i < changes.project_areas.length; i++) {
+          const area = changes.project_areas[i];
+          
+          // Get the current project area to compare changes
+          const currentArea = await db.get(`
+            SELECT * FROM project_areas 
+            WHERE estimate_id = ? 
+            ORDER BY created_at ASC 
+            LIMIT 1 OFFSET ?
+          `, [id, i]);
+
+          if (currentArea) {
+            const areaUpdates = [];
+            const areaValues = [];
+
+            // Check for changes in labor rate
+            if (area.labor_rate !== undefined && area.labor_rate !== currentArea.labor_rate) {
+              areaUpdates.push('labor_rate = ?');
+              areaValues.push(area.labor_rate);
+              
+              await db.logEstimateChange(
+                parseInt(id),
+                revisionId,
+                `project_area_${i}_labor_rate`,
+                currentArea.labor_rate,
+                area.labor_rate,
+                'updated',
+                created_by
+              );
+            }
+
+            // Check for changes in material cost
+            if (area.material_cost !== undefined && area.material_cost !== currentArea.material_cost) {
+              areaUpdates.push('material_cost = ?');
+              areaValues.push(area.material_cost);
+              
+              await db.logEstimateChange(
+                parseInt(id),
+                revisionId,
+                `project_area_${i}_material_cost`,
+                currentArea.material_cost,
+                area.material_cost,
+                'updated',
+                created_by
+              );
+            }
+
+            // Check for changes in labor hours
+            if (area.labor_hours !== undefined && area.labor_hours !== currentArea.labor_hours) {
+              areaUpdates.push('labor_hours = ?');
+              areaValues.push(area.labor_hours);
+              
+              await db.logEstimateChange(
+                parseInt(id),
+                revisionId,
+                `project_area_${i}_labor_hours`,
+                currentArea.labor_hours,
+                area.labor_hours,
+                'updated',
+                created_by
+              );
+            }
+
+            // Update the project area if there are changes
+            if (areaUpdates.length > 0) {
+              areaValues.push(currentArea.id);
+              await db.run(
+                `UPDATE project_areas SET ${areaUpdates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                areaValues
+              );
+            }
+          }
+        }
+      }
+
       // Update the actual estimate with new values
       const updatedFields = [];
       const updateValues = [];
 
+      // Handle labor cost changes
+      if (changes.labor_cost !== undefined) {
+        updatedFields.push('labor_cost = ?');
+        updateValues.push(changes.labor_cost);
+
+        await db.logEstimateChange(
+          parseInt(id),
+          revisionId,
+          'labor_cost',
+          currentEstimate.labor_cost,
+          changes.labor_cost,
+          'updated',
+          created_by
+        );
+      }
+
+      // Handle material cost changes
+      if (changes.material_cost !== undefined) {
+        updatedFields.push('material_cost = ?');
+        updateValues.push(changes.material_cost);
+
+        await db.logEstimateChange(
+          parseInt(id),
+          revisionId,
+          'material_cost',
+          currentEstimate.material_cost,
+          changes.material_cost,
+          'updated',
+          created_by
+        );
+      }
+
       if (changes.markup_percentage !== undefined) {
         updatedFields.push('markup_percentage = ?');
         updateValues.push(changes.markup_percentage);
-        
-        // Recalculate total based on new markup
-        const baseCost = currentEstimate.labor_cost + currentEstimate.material_cost;
-        const newMarkupAmount = baseCost * (changes.markup_percentage / 100);
-        const newTotal = baseCost + newMarkupAmount;
-        
-        updatedFields.push('total_amount = ?');
-        updateValues.push(newTotal);
 
-        // Log the price changes
+        // Log the markup change
         await db.logEstimateChange(
           parseInt(id),
           revisionId,
@@ -514,13 +616,19 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
           'updated',
           created_by
         );
+      }
+
+      // Always update total amount if any cost components changed
+      if (changes.total_amount !== undefined) {
+        updatedFields.push('total_amount = ?');
+        updateValues.push(changes.total_amount);
 
         await db.logEstimateChange(
           parseInt(id),
           revisionId,
           'total_amount',
           currentEstimate.total_amount,
-          newTotal,
+          changes.total_amount,
           'updated',
           created_by
         );

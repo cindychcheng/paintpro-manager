@@ -14,12 +14,16 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
   onSave,
   onCancel
 }) => {
+  console.log('EstimateRevisionForm - currentEstimate:', currentEstimate);
+  console.log('EstimateRevisionForm - project_areas:', currentEstimate.project_areas);
+  console.log('EstimateRevisionForm - project_areas length:', currentEstimate.project_areas?.length);
   const [formData, setFormData] = useState({
     revision_type: 'price_adjustment',
     change_summary: '',
     change_reason: '',
     markup_percentage: currentEstimate.markup_percentage || 15,
-    terms_and_notes: currentEstimate.terms_and_notes || ''
+    terms_and_notes: currentEstimate.terms_and_notes || '',
+    project_areas: currentEstimate.project_areas ? [...currentEstimate.project_areas] : []
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -44,6 +48,16 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
       newErrors.markup_percentage = 'Markup percentage must be between 0 and 100';
     }
 
+    // Validate project areas if they have been modified
+    formData.project_areas.forEach((area, index) => {
+      if (area.labor_rate && (area.labor_rate < 0 || area.labor_rate > 1000)) {
+        newErrors[`area_${index}_labor_rate`] = 'Labor rate must be between $0 and $1000';
+      }
+      if (area.material_cost && area.material_cost < 0) {
+        newErrors[`area_${index}_material_cost`] = 'Material cost cannot be negative';
+      }
+    });
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -51,10 +65,17 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Calculate new totals based on markup change
-      const newMarkup = formData.markup_percentage;
-      const baseCost = currentEstimate.labor_cost + currentEstimate.material_cost;
-      const newMarkupAmount = baseCost * (newMarkup / 100);
+      // Calculate new totals based on project area changes and markup
+      const newLaborCost = formData.project_areas.reduce((sum, area) => {
+        return sum + (area.labor_hours * area.labor_rate || 0);
+      }, 0);
+      
+      const newMaterialCost = formData.project_areas.reduce((sum, area) => {
+        return sum + (area.material_cost || 0);
+      }, 0);
+      
+      const baseCost = newLaborCost + newMaterialCost;
+      const newMarkupAmount = baseCost * (formData.markup_percentage / 100);
       const newTotalAmount = baseCost + newMarkupAmount;
 
       const revisionData = {
@@ -62,10 +83,13 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
         change_summary: formData.change_summary,
         created_by: 'user',
         changes: {
-          markup_percentage: newMarkup,
+          markup_percentage: formData.markup_percentage,
+          labor_cost: newLaborCost,
+          material_cost: newMaterialCost,
           total_amount: newTotalAmount,
           terms_and_notes: formData.terms_and_notes,
-          change_reason: formData.change_reason
+          change_reason: formData.change_reason,
+          project_areas: formData.project_areas
         }
       };
 
@@ -87,15 +111,35 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
   };
 
   // Calculate preview of changes
-  const baseCost = currentEstimate.labor_cost + currentEstimate.material_cost;
-  const currentMarkupAmount = baseCost * (currentEstimate.markup_percentage / 100);
-  const currentTotal = baseCost + currentMarkupAmount;
+  const currentBaseCost = currentEstimate.labor_cost + currentEstimate.material_cost;
+  const currentMarkupAmount = currentBaseCost * (currentEstimate.markup_percentage / 100);
+  const currentTotal = currentBaseCost + currentMarkupAmount;
   
-  const newMarkupAmount = baseCost * (formData.markup_percentage / 100);
-  const newTotal = baseCost + newMarkupAmount;
+  // Calculate new costs based on project area changes
+  const newLaborCost = formData.project_areas.reduce((sum, area) => {
+    return sum + (area.labor_hours * area.labor_rate || 0);
+  }, 0);
+  
+  const newMaterialCost = formData.project_areas.reduce((sum, area) => {
+    return sum + (area.material_cost || 0);
+  }, 0);
+  
+  const newBaseCost = newLaborCost + newMaterialCost;
+  const newMarkupAmount = newBaseCost * (formData.markup_percentage / 100);
+  const newTotal = newBaseCost + newMarkupAmount;
   
   const totalChange = newTotal - currentTotal;
   const percentageChange = currentTotal > 0 ? ((totalChange / currentTotal) * 100) : 0;
+
+  // Helper function to update project area field
+  const updateProjectArea = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      project_areas: prev.project_areas.map((area, i) => 
+        i === index ? { ...area, [field]: value } : area
+      )
+    }));
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -197,30 +241,148 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
             {errors.markup_percentage && <p className="text-red-500 text-sm mt-1">{errors.markup_percentage}</p>}
           </div>
 
+          {/* Project Areas - Detailed Cost Editing */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Project Area Cost Adjustments
+            </label>
+            {true ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {formData.project_areas.map((area, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">{area.area_name}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Labor Hours
+                        </label>
+                        <input
+                          type="number"
+                          value={area.labor_hours || 0}
+                          onChange={(e) => updateProjectArea(index, 'labor_hours', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                          min="0"
+                          step="0.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Labor Rate ($/hr)
+                        </label>
+                        <input
+                          type="number"
+                          value={area.labor_rate || 0}
+                          onChange={(e) => updateProjectArea(index, 'labor_rate', parseFloat(e.target.value) || 0)}
+                          className={`w-full border rounded px-3 py-2 text-sm ${
+                            errors[`area_${index}_labor_rate`] ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                          min="0"
+                          max="1000"
+                          step="0.01"
+                        />
+                        {errors[`area_${index}_labor_rate`] && (
+                          <p className="text-red-500 text-xs mt-1">{errors[`area_${index}_labor_rate`]}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Material Cost ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={area.material_cost || 0}
+                          onChange={(e) => updateProjectArea(index, 'material_cost', parseFloat(e.target.value) || 0)}
+                          className={`w-full border rounded px-3 py-2 text-sm ${
+                            errors[`area_${index}_material_cost`] ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                          min="0"
+                          step="0.01"
+                        />
+                        {errors[`area_${index}_material_cost`] && (
+                          <p className="text-red-500 text-xs mt-1">{errors[`area_${index}_material_cost`]}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div>
+                        Labor Subtotal: {formatCurrency((area.labor_hours || 0) * (area.labor_rate || 0))}
+                      </div>
+                      <div>
+                        Area Total: {formatCurrency(((area.labor_hours || 0) * (area.labor_rate || 0)) + (area.material_cost || 0))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <p className="text-yellow-700">No project areas found for this estimate.</p>
+                <p className="text-sm text-yellow-600 mt-1">You can only adjust the markup percentage for this revision.</p>
+              </div>
+            )}
+          </div>
+
           {/* Price Change Preview */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
               <DollarSign size={18} />
               Price Change Preview
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <div className="text-gray-500">Current Total</div>
-                <div className="font-bold text-lg">{formatCurrency(currentTotal)}</div>
-                <div className="text-xs text-gray-500">Markup: {currentEstimate.markup_percentage}%</div>
-              </div>
-              <div>
-                <div className="text-gray-500">New Total</div>
-                <div className="font-bold text-lg">{formatCurrency(newTotal)}</div>
-                <div className="text-xs text-gray-500">Markup: {formData.markup_percentage}%</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Change</div>
-                <div className={`font-bold text-lg ${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {totalChange >= 0 ? '+' : ''}{formatCurrency(totalChange)}
+                <h4 className="font-medium text-gray-700 mb-2">Current Estimate</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Labor Cost:</span>
+                    <span>{formatCurrency(currentEstimate.labor_cost)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Material Cost:</span>
+                    <span>{formatCurrency(currentEstimate.material_cost)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Markup ({currentEstimate.markup_percentage}%):</span>
+                    <span>{formatCurrency(currentMarkupAmount)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t pt-1">
+                    <span>Total:</span>
+                    <span>{formatCurrency(currentTotal)}</span>
+                  </div>
                 </div>
-                <div className={`text-xs ${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ({totalChange >= 0 ? '+' : ''}{percentageChange.toFixed(1)}%)
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Revised Estimate</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Labor Cost:</span>
+                    <span className={newLaborCost !== currentEstimate.labor_cost ? 'font-semibold text-blue-600' : ''}>
+                      {formatCurrency(newLaborCost)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Material Cost:</span>
+                    <span className={newMaterialCost !== currentEstimate.material_cost ? 'font-semibold text-blue-600' : ''}>
+                      {formatCurrency(newMaterialCost)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Markup ({formData.markup_percentage}%):</span>
+                    <span className={formData.markup_percentage !== currentEstimate.markup_percentage ? 'font-semibold text-blue-600' : ''}>
+                      {formatCurrency(newMarkupAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t pt-1">
+                    <span>Total:</span>
+                    <span className={`${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(newTotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs pt-1">
+                    <span>Change:</span>
+                    <span className={`font-semibold ${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {totalChange >= 0 ? '+' : ''}{formatCurrency(totalChange)} ({totalChange >= 0 ? '+' : ''}{percentageChange.toFixed(1)}%)
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
