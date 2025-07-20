@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { db } from './models/database';
 import { NumberService } from './services/numberService';
 
@@ -17,7 +18,13 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app build
-const clientBuildPath = path.join(__dirname, '../client/dist');
+const clientBuildPath = process.env.NODE_ENV === 'production' 
+  ? path.join(process.cwd(), 'client/dist')
+  : path.join(__dirname, '../client/dist');
+
+console.log(`Serving static files from: ${clientBuildPath}`);
+console.log(`Static path exists: ${fs.existsSync(clientBuildPath)}`);
+
 app.use(express.static(clientBuildPath));
 
 // Health check
@@ -731,7 +738,25 @@ app.delete('/api/payments/:id', async (req, res) => {
 
 // Catch-all handler: send back React's index.html file for any non-API routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  console.log(`Serving index.html from: ${indexPath}`);
+  console.log(`Index.html exists: ${fs.existsSync(indexPath)}`);
+  
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send(`
+      <html>
+        <body>
+          <h1>Static files not found</h1>
+          <p>Looking for: ${indexPath}</p>
+          <p>Client build path: ${clientBuildPath}</p>
+          <p>Working directory: ${process.cwd()}</p>
+          <p>Environment: ${process.env.NODE_ENV}</p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Error handling
