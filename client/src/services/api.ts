@@ -153,8 +153,11 @@ class ApiService {
     };
 
     try {
+      console.log('API Request:', { url, method: config.method || 'GET', body: options.body });
       const response = await fetch(url, config);
       const data = await response.json();
+      
+      console.log('API Response:', { status: response.status, data });
       
       if (!response.ok) {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
