@@ -107,14 +107,21 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
       
       if (result.success) {
         setShowRevisionForm(false);
-        refetch(); // Refresh the current estimate
-        // Optionally show success message
+        
+        // Force refetch the estimate to get updated values
+        await refetch();
+        
+        // Show success message
+        console.log('Revision created successfully:', result.message);
+        
+        // Optionally could show a toast notification here
       } else {
         throw new Error(result.error || 'Failed to create revision');
       }
     } catch (error) {
       console.error('Error creating revision:', error);
       // Handle error - could show toast notification
+      alert('Failed to create revision. Please try again.');
     }
   };
 

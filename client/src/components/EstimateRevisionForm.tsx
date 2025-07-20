@@ -69,6 +69,8 @@ const EstimateRevisionForm: React.FC<EstimateRevisionFormProps> = ({
         }
       };
 
+      console.log('Creating revision with data:', revisionData);
+
       await onSave(revisionData);
     } catch (error) {
       setErrors({ submit: 'Failed to create revision. Please try again.' });

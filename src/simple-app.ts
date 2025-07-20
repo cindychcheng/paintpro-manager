@@ -461,27 +461,121 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
       created_by = 'user',
       changes = {}
     } = req.body;
-    
-    const revisionId = await db.createEstimateRevision(
-      parseInt(id),
-      changes,
-      revision_type,
-      change_summary,
-      created_by
-    );
-    
-    if (revisionId) {
-      res.status(201).json({
-        success: true,
-        data: { revision_id: revisionId },
-        message: 'Estimate revision created successfully'
-      });
-    } else {
-      res.status(400).json({
+
+    // Get the current estimate
+    const currentEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
+    if (!currentEstimate) {
+      return res.status(404).json({
         success: false,
-        error: 'Failed to create estimate revision'
+        error: 'Estimate not found'
       });
     }
+
+    // Start transaction for atomic update
+    await db.run('BEGIN TRANSACTION');
+
+    try {
+      // Create revision record first
+      const revisionId = await db.createEstimateRevision(
+        parseInt(id),
+        changes,
+        revision_type,
+        change_summary,
+        created_by
+      );
+
+      if (!revisionId) {
+        throw new Error('Failed to create revision record');
+      }
+
+      // Update the actual estimate with new values
+      const updatedFields = [];
+      const updateValues = [];
+
+      if (changes.markup_percentage !== undefined) {
+        updatedFields.push('markup_percentage = ?');
+        updateValues.push(changes.markup_percentage);
+        
+        // Recalculate total based on new markup
+        const baseCost = currentEstimate.labor_cost + currentEstimate.material_cost;
+        const newMarkupAmount = baseCost * (changes.markup_percentage / 100);
+        const newTotal = baseCost + newMarkupAmount;
+        
+        updatedFields.push('total_amount = ?');
+        updateValues.push(newTotal);
+
+        // Log the price changes
+        await db.logEstimateChange(
+          parseInt(id),
+          revisionId,
+          'markup_percentage',
+          currentEstimate.markup_percentage,
+          changes.markup_percentage,
+          'updated',
+          created_by
+        );
+
+        await db.logEstimateChange(
+          parseInt(id),
+          revisionId,
+          'total_amount',
+          currentEstimate.total_amount,
+          newTotal,
+          'updated',
+          created_by
+        );
+      }
+
+      if (changes.terms_and_notes !== undefined) {
+        updatedFields.push('terms_and_notes = ?');
+        updateValues.push(changes.terms_and_notes);
+
+        await db.logEstimateChange(
+          parseInt(id),
+          revisionId,
+          'terms_and_notes',
+          currentEstimate.terms_and_notes,
+          changes.terms_and_notes,
+          'updated',
+          created_by
+        );
+      }
+
+      if (changes.change_reason !== undefined) {
+        updatedFields.push('change_reason = ?');
+        updateValues.push(changes.change_reason);
+      }
+
+      // Update the estimate if there are fields to update
+      if (updatedFields.length > 0) {
+        updateValues.push(id); // For WHERE clause
+        await db.run(
+          `UPDATE estimates SET ${updatedFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          updateValues
+        );
+      }
+
+      // Commit the transaction
+      await db.run('COMMIT');
+
+      // Get the updated estimate
+      const updatedEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
+
+      res.status(201).json({
+        success: true,
+        data: { 
+          revision_id: revisionId,
+          updated_estimate: updatedEstimate
+        },
+        message: 'Estimate revision created and applied successfully'
+      });
+
+    } catch (error) {
+      // Rollback on error
+      await db.run('ROLLBACK');
+      throw error;
+    }
+
   } catch (error) {
     console.error('Error creating estimate revision:', error);
     res.status(500).json({ success: false, error: 'Failed to create estimate revision' });
