@@ -18,13 +18,30 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app build
-const clientBuildPath = process.env.NODE_ENV === 'production' 
-  ? path.join(process.cwd(), 'client/dist')
-  : path.join(__dirname, '../client/dist');
+const possiblePaths = process.env.NODE_ENV === 'production' 
+  ? [
+      path.join(process.cwd(), 'public'),
+      path.join(process.cwd(), 'client/dist'),
+      path.join(process.cwd(), 'dist/client/dist'),
+      path.join(__dirname, '../client/dist')
+    ]
+  : [path.join(__dirname, '../client/dist')];
 
-console.log(`Serving static files from: ${clientBuildPath}`);
-console.log(`Static path exists: ${fs.existsSync(clientBuildPath)}`);
+let clientBuildPath = '';
+for (const testPath of possiblePaths) {
+  console.log(`Testing static path: ${testPath} - exists: ${fs.existsSync(testPath)}`);
+  if (fs.existsSync(testPath)) {
+    clientBuildPath = testPath;
+    break;
+  }
+}
 
+if (!clientBuildPath) {
+  console.error('No valid static file path found!');
+  clientBuildPath = possiblePaths[0]; // fallback
+}
+
+console.log(`Using static files from: ${clientBuildPath}`);
 app.use(express.static(clientBuildPath));
 
 // Health check
@@ -745,17 +762,28 @@ app.get('*', (req, res) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send(`
-      <html>
-        <body>
-          <h1>Static files not found</h1>
-          <p>Looking for: ${indexPath}</p>
-          <p>Client build path: ${clientBuildPath}</p>
-          <p>Working directory: ${process.cwd()}</p>
-          <p>Environment: ${process.env.NODE_ENV}</p>
-        </body>
-      </html>
-    `);
+    // Try to find index.html in any of the possible paths
+    const allPossibleIndexPaths = possiblePaths.map(p => path.join(p, 'index.html'));
+    const workingIndexPath = allPossibleIndexPaths.find(p => fs.existsSync(p));
+    
+    if (workingIndexPath) {
+      console.log(`Found index.html at: ${workingIndexPath}`);
+      res.sendFile(workingIndexPath);
+    } else {
+      res.status(404).send(`
+        <html>
+          <body>
+            <h1>Static files not found</h1>
+            <p>Looking for: ${indexPath}</p>
+            <p>Client build path: ${clientBuildPath}</p>
+            <p>Working directory: ${process.cwd()}</p>
+            <p>Environment: ${process.env.NODE_ENV}</p>
+            <p>Tested paths: ${possiblePaths.join(', ')}</p>
+            <p>All index paths tested: ${allPossibleIndexPaths.join(', ')}</p>
+          </body>
+        </html>
+      `);
+    }
   }
 });
 

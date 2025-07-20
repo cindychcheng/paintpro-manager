@@ -11,10 +11,12 @@ cmds = [
 cmds = [
   'npm run client:install',
   'npm run client:build-only',
+  'cp -r client/dist public',
   'npx tsc src/simple-app.ts --outDir dist --target ES2020 --module commonjs --esModuleInterop true --allowSyntheticDefaultImports true --strict true --skipLibCheck true --resolveJsonModule true',
   'ls -la',
   'ls -la client/',
-  'ls -la client/dist/ || echo "client/dist not found"'
+  'ls -la client/dist/ || echo "client/dist not found"',
+  'ls -la public/ || echo "public not found"'
 ]
 
 [start]
