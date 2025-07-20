@@ -779,6 +779,18 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 App available at: http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Database path: ${process.env.NODE_ENV === 'production' ? '/app/painting_business.db' : 'painting_business.db'}`);
+  
+  // Debug: List files in working directory
+  console.log('Files in working directory:');
+  try {
+    const files = fs.readdirSync(process.cwd());
+    files.forEach(file => {
+      const stats = fs.statSync(path.join(process.cwd(), file));
+      console.log(`  ${file} ${stats.isDirectory() ? '(dir)' : `(${stats.size} bytes)`}`);
+    });
+  } catch (err) {
+    console.error('Error listing working directory:', err);
+  }
 });
 
 export default app;
