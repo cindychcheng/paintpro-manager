@@ -13,7 +13,7 @@
     "full:dev": "concurrently \"npm run dev\" \"npm run client:dev\"",
     "seed": "ts-node src/scripts/seedData.ts",
     "test": "echo \"Tests coming soon\"",
-    "railway:build": "npm run build",
+    "railway:build": "npm run build && cp -r client/dist/* . && ls -la *.html || echo 'No HTML files' && ls -la assets/ || echo 'No assets directory'",
     "railway:start": "NODE_ENV=production npm start"
   },
   "keywords": [],

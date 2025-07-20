@@ -20,6 +20,7 @@ app.use(express.json());
 // Serve static files from the React app build
 const possiblePaths = process.env.NODE_ENV === 'production' 
   ? [
+      process.cwd(), // Files copied to root
       path.join(process.cwd(), 'public'),
       path.join(process.cwd(), 'client/dist'),
       path.join(process.cwd(), 'dist/client/dist'),
@@ -29,8 +30,9 @@ const possiblePaths = process.env.NODE_ENV === 'production'
 
 let clientBuildPath = '';
 for (const testPath of possiblePaths) {
-  console.log(`Testing static path: ${testPath} - exists: ${fs.existsSync(testPath)}`);
-  if (fs.existsSync(testPath)) {
+  const indexPath = path.join(testPath, 'index.html');
+  console.log(`Testing static path: ${testPath} - index.html exists: ${fs.existsSync(indexPath)}`);
+  if (fs.existsSync(indexPath)) {
     clientBuildPath = testPath;
     break;
   }
