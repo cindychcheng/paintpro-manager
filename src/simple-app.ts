@@ -124,6 +124,81 @@ app.get('/api/clients', async (req, res) => {
   }
 });
 
+// Create new client
+app.post('/api/clients', async (req, res) => {
+  try {
+    const clientData = req.body;
+
+    // Validation
+    if (!clientData.name?.trim()) {
+      return res.status(400).json({ success: false, error: 'Client name is required' });
+    }
+
+    if (clientData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientData.email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+
+    // Check for duplicate email
+    if (clientData.email) {
+      const existingClient = await db.get('SELECT id FROM clients WHERE email = ?', [clientData.email]);
+      if (existingClient) {
+        return res.status(409).json({ success: false, error: 'Client with this email already exists' });
+      }
+    }
+
+    // Try new format with job address columns first, fallback to old format if columns don't exist
+    let result;
+    try {
+      result = await db.run(
+        `INSERT INTO clients (name, email, phone, address, city, state, zip_code, job_address, job_city, job_state, job_zip_code, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          clientData.name.trim(),
+          clientData.email || null,
+          clientData.phone || null,
+          clientData.address || null,
+          clientData.city || null,
+          clientData.state || null,
+          clientData.zip_code || null,
+          clientData.job_address || null,
+          clientData.job_city || null,
+          clientData.job_state || null,
+          clientData.job_zip_code || null,
+          clientData.notes || null
+        ]
+      );
+    } catch (error) {
+      // Fallback to old format without job address columns
+      console.log('Job address columns not found, using legacy format:', (error as Error).message);
+      result = await db.run(
+        `INSERT INTO clients (name, email, phone, address, city, state, zip_code, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          clientData.name.trim(),
+          clientData.email || null,
+          clientData.phone || null,
+          clientData.address || null,
+          clientData.city || null,
+          clientData.state || null,
+          clientData.zip_code || null,
+          clientData.notes || null
+        ]
+      );
+    }
+
+    const newClient = await db.get('SELECT * FROM clients WHERE id = ?', [result.id]);
+
+    res.status(201).json({
+      success: true,
+      data: newClient,
+      message: 'Client created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating client:', error);
+    res.status(500).json({ success: false, error: 'Failed to create client' });
+  }
+});
+
 // Create new estimate
 app.post('/api/estimates', async (req, res) => {
   try {
