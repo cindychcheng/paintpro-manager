@@ -451,6 +451,30 @@ app.get('/api/estimates/:id/changelog', async (req, res) => {
   }
 });
 
+// Test endpoint to check basic database operations
+app.post('/api/test-revision/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Testing revision for estimate:', id);
+    
+    const estimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
+    console.log('Found estimate:', estimate);
+    
+    res.json({
+      success: true,
+      message: 'Basic database test passed',
+      estimate
+    });
+  } catch (error) {
+    console.error('Test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Test failed',
+      details: (error as Error).message
+    });
+  }
+});
+
 // Create estimate revision with enhanced tracking
 app.post('/api/estimates/:id/revisions', async (req, res) => {
   try {
@@ -487,24 +511,45 @@ app.post('/api/estimates/:id/revisions', async (req, res) => {
       console.log('Creating revision #', newRevisionNumber);
 
       // Create a simple revision log entry
-      const revisionLogResult = await db.run(`
-        INSERT INTO estimate_revisions (
-          estimate_id, revision_number, created_by, revision_type, 
-          change_summary, change_details, previous_total_amount, 
-          new_total_amount, previous_markup_percentage, new_markup_percentage
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        parseInt(id),
-        newRevisionNumber,
-        created_by,
-        revision_type,
-        change_summary,
-        JSON.stringify(changes),
-        currentEstimate.total_amount,
-        changes.total_amount || currentEstimate.total_amount,
-        currentEstimate.markup_percentage,
-        changes.markup_percentage || currentEstimate.markup_percentage
-      ]);
+      let revisionLogResult;
+      try {
+        console.log('Attempting to insert revision log with values:', [
+          parseInt(id),
+          newRevisionNumber,
+          created_by,
+          revision_type,
+          change_summary,
+          JSON.stringify(changes),
+          currentEstimate.total_amount,
+          changes.total_amount || currentEstimate.total_amount,
+          currentEstimate.markup_percentage,
+          changes.markup_percentage || currentEstimate.markup_percentage
+        ]);
+        
+        revisionLogResult = await db.run(`
+          INSERT INTO estimate_revisions (
+            estimate_id, revision_number, created_by, revision_type, 
+            change_summary, change_details, previous_total_amount, 
+            new_total_amount, previous_markup_percentage, new_markup_percentage
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          parseInt(id),
+          newRevisionNumber,
+          created_by,
+          revision_type,
+          change_summary,
+          JSON.stringify(changes),
+          currentEstimate.total_amount,
+          changes.total_amount || currentEstimate.total_amount,
+          currentEstimate.markup_percentage,
+          changes.markup_percentage || currentEstimate.markup_percentage
+        ]);
+        
+        console.log('Revision log insert successful:', revisionLogResult);
+      } catch (revisionError) {
+        console.error('ERROR in revision log insert:', revisionError);
+        throw new Error(`Revision log insert failed: ${(revisionError as Error).message}`);
+      }
 
       const revisionId = revisionLogResult.lastID;
       console.log('Revision log created with ID:', revisionId);
