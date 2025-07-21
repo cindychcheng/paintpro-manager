@@ -243,16 +243,16 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
       0: { cellWidth: 65, halign: 'right', fontStyle: 'bold' },
       1: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: 115, right: 20 } // Position on right side
+    margin: { left: 85, right: 20 } // Align with project areas table right margin
   });
   
-  // Total highlight - positioned on right side
+  // Total highlight - positioned to align with cost table
   const totalY = (doc as any).lastAutoTable.finalY + 5;
   doc.setFillColor(37, 99, 235);
-  doc.rect(140, totalY, 50, 12, 'F');
+  doc.rect(125, totalY, 50, 12, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, totalY + 7, { align: 'center' });
+  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 150, totalY + 7, { align: 'center' });
   
   // Update yPosition to the bottom of whichever column is longer
   const termsEndY = estimate.terms_and_notes ? 
