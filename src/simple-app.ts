@@ -426,24 +426,33 @@ app.get('/api/estimates/:id/revisions', async (req, res) => {
     `, [id]);
     
     // Format the data for the frontend version history component
-    const formattedRevisions = revisionLogs.map(log => ({
-      id: log.id,
-      estimate_number: log.estimate_number,
-      title: log.title,
-      revision_number: log.revision_number,
-      total_amount: log.new_total_amount,
-      labor_cost: 0, // We don't track this separately in logs yet
-      material_cost: 0, // We don't track this separately in logs yet
-      markup_percentage: log.new_markup_percentage,
-      status: 'revised',
-      created_at: log.created_at,
-      revision_type: log.revision_type,
-      change_summary: log.change_summary,
-      approval_status: log.approval_status,
-      approved_by: log.approved_by,
-      approved_at: log.approved_at,
-      is_current_version: false
-    }));
+    const formattedRevisions = revisionLogs.map(log => {
+      let changeDetails: any = {};
+      try {
+        changeDetails = JSON.parse(log.change_details || '{}');
+      } catch (e) {
+        changeDetails = {};
+      }
+      
+      return {
+        id: log.id,
+        estimate_number: log.estimate_number,
+        title: log.title,
+        revision_number: log.revision_number,
+        total_amount: log.new_total_amount,
+        labor_cost: changeDetails.labor_cost || 0,
+        material_cost: changeDetails.material_cost || 0,
+        markup_percentage: log.new_markup_percentage,
+        status: 'revised',
+        created_at: log.created_at,
+        revision_type: log.revision_type,
+        change_summary: log.change_summary,
+        approval_status: log.approval_status,
+        approved_by: log.approved_by,
+        approved_at: log.approved_at,
+        is_current_version: false
+      };
+    });
     
     res.json({
       success: true,
@@ -735,7 +744,7 @@ app.get('/api/estimates/:id/versions', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Estimate not found' });
     }
     
-    // Get all versions in this group
+    // Get all versions in this group with revision details
     const versions = await db.all(`
       SELECT 
         e.*,
@@ -745,7 +754,10 @@ app.get('/api/estimates/:id/versions', async (req, res) => {
         er.change_summary,
         er.approval_status,
         er.approved_by,
-        er.approved_at
+        er.approved_at,
+        er.change_details,
+        er.previous_total_amount,
+        er.new_total_amount
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
       LEFT JOIN estimate_revisions er ON e.id = er.estimate_id
@@ -753,9 +765,37 @@ app.get('/api/estimates/:id/versions', async (req, res) => {
       ORDER BY e.revision_number ASC
     `, [estimate.version_group_id]);
     
+    // Process versions to extract historical labor/material costs from change_details
+    const processedVersions = versions.map(version => {
+      let labor_cost = version.labor_cost;
+      let material_cost = version.material_cost;
+      
+      // If this version has change_details, extract historical costs
+      if (version.change_details) {
+        try {
+          const changeDetails = JSON.parse(version.change_details);
+          if (changeDetails.labor_cost !== undefined) {
+            labor_cost = changeDetails.labor_cost;
+          }
+          if (changeDetails.material_cost !== undefined) {
+            material_cost = changeDetails.material_cost;
+          }
+        } catch (error) {
+          console.error('Error parsing change_details for version:', version.id, error);
+        }
+      }
+      
+      return {
+        ...version,
+        labor_cost,
+        material_cost,
+        is_current_version: version.id == parseInt(id)
+      };
+    });
+    
     res.json({
       success: true,
-      data: versions
+      data: processedVersions
     });
   } catch (error) {
     console.error('Error getting estimate versions:', error);
