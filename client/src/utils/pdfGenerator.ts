@@ -106,7 +106,7 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   
   // Estimate number and details - positioned to align with business address area
   const estimateHeaderY = 20;
-  const businessAddressY = yPosition - 8; // Align with business address area
+  const businessAddressY = yPosition - 12; // Move up one line (4 units higher)
   
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
@@ -367,7 +367,7 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   
   // Invoice number and details - positioned to align with business address area
   const invoiceHeaderY = 20;
-  const businessAddressY = yPosition - 8; // Align with business address area
+  const businessAddressY = yPosition - 12; // Move up one line (4 units higher)
   
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
