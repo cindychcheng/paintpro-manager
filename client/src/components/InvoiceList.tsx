@@ -250,18 +250,18 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
                       <Edit size={16} />
                     </button>
                   )}
+                </div>
+
+                <div className="flex items-center gap-2">
                   {invoice.status === 'draft' && (
                     <button
                       onClick={() => handleStatusUpdate(invoice.id, 'sent')}
-                      className="w-9 h-9 bg-purple-500 hover:bg-purple-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      className="w-9 h-9 bg-blue-500 hover:bg-blue-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
                       title="Send to Client"
                     >
                       <Send size={16} />
                     </button>
                   )}
-                </div>
-
-                <div className="flex items-center gap-2">
                   {invoice.status === 'sent' && (
                     <button
                       onClick={() => handleStatusUpdate(invoice.id, 'paid')}
