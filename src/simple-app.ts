@@ -991,7 +991,8 @@ app.patch('/api/estimates/:id', async (req, res) => {
       description,
       valid_until,
       markup_percentage,
-      terms_and_notes
+      terms_and_notes,
+      project_areas
     } = req.body;
 
     // Validation
@@ -1033,6 +1034,51 @@ app.patch('/api/estimates/:id', async (req, res) => {
 
     await db.run(`UPDATE estimates SET ${updates.join(', ')} WHERE id = ?`, values);
     
+    // Handle project areas update if provided
+    if (project_areas && Array.isArray(project_areas)) {
+      // Delete existing project areas for this estimate
+      await db.run('DELETE FROM project_areas WHERE estimate_id = ?', [id]);
+      
+      // Insert new project areas and calculate totals
+      let totalLaborCost = 0;
+      let totalMaterialCost = 0;
+      
+      for (const area of project_areas) {
+        const laborCost = (area.labor_hours || 0) * (area.labor_rate || 45);
+        const materialCost = area.material_cost || 0;
+        
+        totalLaborCost += laborCost;
+        totalMaterialCost += materialCost;
+        
+        await db.run(`
+          INSERT INTO project_areas (
+            estimate_id, area_name, area_type, surface_type, square_footage, 
+            ceiling_height, prep_requirements, paint_type, paint_brand, 
+            paint_color, finish_type, number_of_coats, labor_hours, 
+            labor_rate, material_cost, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          id, area.area_name, area.area_type || 'indoor', area.surface_type || 'drywall',
+          area.square_footage || 0, area.ceiling_height || 8, area.prep_requirements || '',
+          area.paint_type || 'Latex', area.paint_brand || 'Benjamin Moore', area.paint_color || '',
+          area.finish_type || 'Eggshell', area.number_of_coats || 2, area.labor_hours || 0,
+          area.labor_rate || 45, area.material_cost || 0, area.notes || ''
+        ]);
+      }
+      
+      // Update estimate totals
+      const currentMarkup = markup_percentage !== undefined ? markup_percentage : 
+        (await db.get('SELECT markup_percentage FROM estimates WHERE id = ?', [id]))?.markup_percentage || 0;
+      
+      const totalAmount = totalLaborCost + totalMaterialCost + ((totalLaborCost + totalMaterialCost) * (currentMarkup / 100));
+      
+      await db.run(`
+        UPDATE estimates 
+        SET labor_cost = ?, material_cost = ?, total_amount = ? 
+        WHERE id = ?
+      `, [totalLaborCost, totalMaterialCost, totalAmount, id]);
+    }
+    
     const updatedEstimate = await db.get(`
       SELECT 
         e.*,
@@ -1047,6 +1093,10 @@ app.patch('/api/estimates/:id', async (req, res) => {
     if (!updatedEstimate) {
       return res.status(404).json({ success: false, error: 'Estimate not found' });
     }
+
+    // Get project areas for the updated estimate
+    const projectAreas = await db.all('SELECT * FROM project_areas WHERE estimate_id = ?', [id]);
+    updatedEstimate.project_areas = projectAreas;
 
     res.json({
       success: true,
