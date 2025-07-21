@@ -738,64 +738,112 @@ app.get('/api/estimates/:id/versions', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get the version group ID for this estimate
-    const estimate = await db.get('SELECT version_group_id FROM estimates WHERE id = ?', [id]);
-    if (!estimate) {
-      return res.status(404).json({ success: false, error: 'Estimate not found' });
-    }
-    
-    // Get all versions in this group with revision details
-    const versions = await db.all(`
+    // Get the current estimate
+    const currentEstimate = await db.get(`
       SELECT 
         e.*,
         c.name as client_name,
-        c.email as client_email,
-        er.revision_type,
-        er.change_summary,
-        er.approval_status,
-        er.approved_by,
-        er.approved_at,
-        er.change_details,
-        er.previous_total_amount,
-        er.new_total_amount
+        c.email as client_email
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
-      LEFT JOIN estimate_revisions er ON e.id = er.estimate_id
-      WHERE e.version_group_id = ?
-      ORDER BY e.revision_number ASC
-    `, [estimate.version_group_id]);
+      WHERE e.id = ?
+    `, [id]);
     
-    // Process versions to extract historical labor/material costs from change_details
-    const processedVersions = versions.map(version => {
-      let labor_cost = version.labor_cost;
-      let material_cost = version.material_cost;
+    if (!currentEstimate) {
+      return res.status(404).json({ success: false, error: 'Estimate not found' });
+    }
+    
+    // Get all revision logs for this estimate, ordered by revision number
+    const revisionLogs = await db.all(`
+      SELECT * FROM estimate_revisions 
+      WHERE estimate_id = ? 
+      ORDER BY revision_number ASC
+    `, [id]);
+    
+    // Reconstruct historical versions by applying changes step by step
+    const versions = [];
+    
+    // Start with initial version (v1) - this would be the original estimate before any revisions
+    let currentState = {
+      id: parseInt(id),
+      estimate_number: currentEstimate.estimate_number,
+      title: currentEstimate.title,
+      revision_number: 1,
+      total_amount: null, // Will be calculated from first revision's previous_total_amount
+      labor_cost: 0,
+      material_cost: 0,
+      markup_percentage: currentEstimate.markup_percentage,
+      status: currentEstimate.status,
+      created_at: currentEstimate.created_at,
+      client_name: currentEstimate.client_name,
+      client_email: currentEstimate.client_email,
+      is_current_version: revisionLogs.length === 0, // Current if no revisions exist
+      revision_type: null,
+      change_summary: null
+    };
+    
+    // If we have revisions, the initial state's total should be the first revision's previous_total_amount
+    if (revisionLogs.length > 0) {
+      currentState.total_amount = revisionLogs[0].previous_total_amount;
       
-      // If this version has change_details, extract historical costs
-      if (version.change_details) {
-        try {
-          const changeDetails = JSON.parse(version.change_details);
-          if (changeDetails.labor_cost !== undefined) {
-            labor_cost = changeDetails.labor_cost;
-          }
-          if (changeDetails.material_cost !== undefined) {
-            material_cost = changeDetails.material_cost;
-          }
-        } catch (error) {
-          console.error('Error parsing change_details for version:', version.id, error);
+      // Try to extract labor/material costs from the first revision's details
+      try {
+        const firstRevisionDetails = JSON.parse(revisionLogs[0].change_details || '{}');
+        // Work backwards - if first revision changed costs, calculate what they were before
+        if (firstRevisionDetails.labor_cost !== undefined && firstRevisionDetails.material_cost !== undefined) {
+          // Use previous values if available, otherwise use current estimate minus changes
+          currentState.labor_cost = firstRevisionDetails.labor_cost || 0;
+          currentState.material_cost = firstRevisionDetails.material_cost || 0;
         }
+      } catch (e) {
+        // Fallback: estimate the original costs
+        const totalWithoutMarkup = (currentState.total_amount || 0) / (1 + (currentState.markup_percentage / 100));
+        currentState.labor_cost = totalWithoutMarkup * 0.6; // Estimate 60% labor
+        currentState.material_cost = totalWithoutMarkup * 0.4; // Estimate 40% material
       }
-      
-      return {
-        ...version,
-        labor_cost,
-        material_cost,
-        is_current_version: version.id == parseInt(id)
-      };
+    } else {
+      // No revisions, use current estimate data
+      currentState.total_amount = currentEstimate.total_amount;
+      currentState.labor_cost = currentEstimate.labor_cost;
+      currentState.material_cost = currentEstimate.material_cost;
+    }
+    
+    versions.push({ ...currentState });
+    
+    // Apply each revision to build historical versions
+    revisionLogs.forEach((revision, index) => {
+      try {
+        const changeDetails = JSON.parse(revision.change_details || '{}');
+        
+        // Create new version state by applying this revision's changes
+        const newVersion = {
+          id: parseInt(id),
+          estimate_number: currentEstimate.estimate_number,
+          title: currentEstimate.title,
+          revision_number: revision.revision_number,
+          total_amount: revision.new_total_amount || changeDetails.total_amount || currentState.total_amount,
+          labor_cost: changeDetails.labor_cost !== undefined ? changeDetails.labor_cost : currentState.labor_cost,
+          material_cost: changeDetails.material_cost !== undefined ? changeDetails.material_cost : currentState.material_cost,
+          markup_percentage: changeDetails.markup_percentage !== undefined ? changeDetails.markup_percentage : currentState.markup_percentage,
+          status: currentEstimate.status,
+          created_at: revision.created_at,
+          client_name: currentEstimate.client_name,
+          client_email: currentEstimate.client_email,
+          is_current_version: index === revisionLogs.length - 1, // Last revision is current
+          revision_type: revision.revision_type,
+          change_summary: revision.change_summary
+        };
+        
+        versions.push(newVersion);
+        currentState = newVersion; // Update current state for next iteration
+      } catch (error) {
+        console.error('Error processing revision:', revision.id, error);
+      }
     });
     
     res.json({
       success: true,
-      data: processedVersions
+      data: versions
     });
   } catch (error) {
     console.error('Error getting estimate versions:', error);
