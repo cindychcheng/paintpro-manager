@@ -562,6 +562,32 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
       }
     }
     
+    // Create a simple revision log entry (without constraints)
+    try {
+      await db.run(`
+        INSERT INTO estimate_revisions (
+          estimate_id, revision_number, created_by, revision_type, 
+          change_summary, change_details, previous_total_amount, 
+          new_total_amount, previous_markup_percentage, new_markup_percentage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        parseInt(id),
+        currentEstimate.revision_number + 1, // Use the new revision number
+        req.body.created_by || 'user',
+        req.body.revision_type || 'price_adjustment',
+        req.body.change_summary || 'Estimate revision',
+        JSON.stringify(changes),
+        currentEstimate.total_amount,
+        changes.total_amount || currentEstimate.total_amount,
+        currentEstimate.markup_percentage,
+        changes.markup_percentage || currentEstimate.markup_percentage
+      ]);
+      console.log("REVISION: Log entry created successfully");
+    } catch (logError) {
+      console.log("REVISION: Log entry failed (non-critical):", logError);
+      // Don't fail the whole revision if logging fails
+    }
+
     // Verify the update worked
     const updatedEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
     console.log("REVISION: Update successful. New revision #", updatedEstimate.revision_number);
