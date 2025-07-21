@@ -563,8 +563,19 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
     }
     
     // Create a simple revision log entry (without constraints)
+    const newRevisionNumber = currentEstimate.revision_number + 1;
+    console.log("REVISION: Attempting to create log entry with data:", {
+      estimate_id: parseInt(id),
+      revision_number: newRevisionNumber,
+      created_by: req.body.created_by || 'user',
+      revision_type: req.body.revision_type || 'price_adjustment',
+      change_summary: req.body.change_summary || 'Estimate revision',
+      previous_total: currentEstimate.total_amount,
+      new_total: changes.total_amount || currentEstimate.total_amount
+    });
+    
     try {
-      await db.run(`
+      const logResult = await db.run(`
         INSERT INTO estimate_revisions (
           estimate_id, revision_number, created_by, revision_type, 
           change_summary, change_details, previous_total_amount, 
@@ -572,7 +583,7 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         parseInt(id),
-        currentEstimate.revision_number + 1, // Use the new revision number
+        newRevisionNumber,
         req.body.created_by || 'user',
         req.body.revision_type || 'price_adjustment',
         req.body.change_summary || 'Estimate revision',
@@ -582,9 +593,15 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
         currentEstimate.markup_percentage,
         changes.markup_percentage || currentEstimate.markup_percentage
       ]);
-      console.log("REVISION: Log entry created successfully");
+      console.log("REVISION: Log entry created successfully with ID:", logResult.lastID);
+      
+      // Verify the log was created
+      const createdLog = await db.get("SELECT * FROM estimate_revisions WHERE id = ?", [logResult.lastID]);
+      console.log("REVISION: Verified log entry:", createdLog);
+      
     } catch (logError) {
-      console.log("REVISION: Log entry failed (non-critical):", logError);
+      console.error("REVISION: Log entry failed:", logError);
+      console.error("REVISION: Error details:", (logError as Error).message);
       // Don't fail the whole revision if logging fails
     }
 
