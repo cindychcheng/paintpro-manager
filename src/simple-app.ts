@@ -1357,32 +1357,6 @@ app.delete('/api/payments/:id', async (req, res) => {
   }
 });
 
-// Catch-all handler: send back React's index.html file for any non-API routes
-app.get('*', (req, res) => {
-  const indexPath = path.join(clientBuildPath, 'index.html');
-  console.log(`📄 Serving index.html from: ${indexPath}`);
-  
-  if (fs.existsSync(indexPath)) {
-    console.log(`✅ Index.html found, serving React app`);
-    res.sendFile(indexPath);
-  } else {
-    console.error(`❌ Index.html not found at: ${indexPath}`);
-    res.status(404).send(`
-      <html>
-        <body>
-          <h1>React App Not Found</h1>
-          <p>Looking for index.html at: ${indexPath}</p>
-          <p>Client build path: ${clientBuildPath}</p>
-          <p>Working directory: ${process.cwd()}</p>
-          <p>Environment: ${process.env.NODE_ENV}</p>
-          <hr>
-          <p>This diagnostic page means the Express server is running but can't find the React build files.</p>
-        </body>
-      </html>
-    `);
-  }
-});
-
 // Company Settings endpoints
 app.get('/api/company-settings', async (req, res) => {
   try {
@@ -1492,6 +1466,32 @@ app.post('/api/upload-logo', async (req, res) => {
   } catch (error) {
     console.error('Error uploading logo:', error);
     res.status(500).json({ success: false, error: 'Failed to upload logo' });
+  }
+});
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+app.get('*', (req, res) => {
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  console.log(`📄 Serving index.html from: ${indexPath}`);
+  
+  if (fs.existsSync(indexPath)) {
+    console.log(`✅ Index.html found, serving React app`);
+    res.sendFile(indexPath);
+  } else {
+    console.error(`❌ Index.html not found at: ${indexPath}`);
+    res.status(404).send(`
+      <html>
+        <body>
+          <h1>React App Not Found</h1>
+          <p>Looking for index.html at: ${indexPath}</p>
+          <p>Client build path: ${clientBuildPath}</p>
+          <p>Working directory: ${process.cwd()}</p>
+          <p>Environment: ${process.env.NODE_ENV}</p>
+          <hr>
+          <p>This diagnostic page means the Express server is running but can't find the React build files.</p>
+        </body>
+      </html>
+    `);
   }
 });
 
