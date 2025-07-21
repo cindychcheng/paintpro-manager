@@ -475,37 +475,104 @@ app.post('/api/test-revision/:id', async (req, res) => {
   }
 });
 
-// Create estimate revision - SUPER SIMPLE VERSION
+// Create estimate revision - WORKING VERSION
 app.post("/api/estimates/:id/revisions", async (req, res) => {
   try {
     const { id } = req.params;
     const { changes = {} } = req.body;
     
-    console.log("SIMPLE: Updating estimate", id, "with changes:", changes);
+    console.log("REVISION: Updating estimate", id, "with changes:", changes);
     
-    // Just update markup percentage directly
+    // Check estimate status first
+    const currentEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
+    if (!currentEstimate) {
+      return res.status(404).json({ success: false, error: "Estimate not found" });
+    }
+    
+    if (!['sent', 'approved'].includes(currentEstimate.status)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Cannot revise estimate with status '${currentEstimate.status}'. Estimate must be 'sent' or 'approved'.` 
+      });
+    }
+    
+    // Update estimate fields
+    const updates = [];
+    const values = [];
+    
     if (changes.markup_percentage !== undefined) {
-      await db.run("UPDATE estimates SET markup_percentage = ?, revision_number = revision_number + 1 WHERE id = ?", 
-        [changes.markup_percentage, id]);
+      updates.push("markup_percentage = ?");
+      values.push(changes.markup_percentage);
     }
     
     if (changes.total_amount !== undefined) {
-      await db.run("UPDATE estimates SET total_amount = ? WHERE id = ?", 
-        [changes.total_amount, id]);
+      updates.push("total_amount = ?");
+      values.push(changes.total_amount);
     }
     
-    console.log("SIMPLE: Update successful");
+    if (changes.labor_cost !== undefined) {
+      updates.push("labor_cost = ?");
+      values.push(changes.labor_cost);
+    }
+    
+    if (changes.material_cost !== undefined) {
+      updates.push("material_cost = ?");
+      values.push(changes.material_cost);
+    }
+    
+    // Always increment revision number
+    updates.push("revision_number = revision_number + 1");
+    
+    if (updates.length > 0) {
+      values.push(id);
+      await db.run(`UPDATE estimates SET ${updates.join(", ")} WHERE id = ?`, values);
+    }
+    
+    // Update project areas if provided
+    if (changes.project_areas && Array.isArray(changes.project_areas)) {
+      const currentProjectAreas = await db.all("SELECT * FROM project_areas WHERE estimate_id = ? ORDER BY created_at ASC", [id]);
+      
+      for (let i = 0; i < changes.project_areas.length && i < currentProjectAreas.length; i++) {
+        const newArea = changes.project_areas[i];
+        const currentArea = currentProjectAreas[i];
+        
+        const areaUpdates = [];
+        const areaValues = [];
+        
+        if (newArea.labor_hours !== undefined) {
+          areaUpdates.push("labor_hours = ?");
+          areaValues.push(newArea.labor_hours);
+        }
+        
+        if (newArea.labor_rate !== undefined) {
+          areaUpdates.push("labor_rate = ?");
+          areaValues.push(newArea.labor_rate);
+        }
+        
+        if (newArea.material_cost !== undefined) {
+          areaUpdates.push("material_cost = ?");
+          areaValues.push(newArea.material_cost);
+        }
+        
+        if (areaUpdates.length > 0) {
+          areaValues.push(currentArea.id);
+          await db.run(`UPDATE project_areas SET ${areaUpdates.join(", ")} WHERE id = ?`, areaValues);
+        }
+      }
+    }
+    
+    console.log("REVISION: Update successful");
     
     res.json({
       success: true,
-      message: "Simple revision update successful"
+      message: "Estimate revision created successfully"
     });
     
   } catch (error) {
-    console.error("SIMPLE: Revision failed:", error);
+    console.error("REVISION: Failed:", error);
     res.status(500).json({
       success: false,
-      error: "Simple revision failed",
+      error: "Revision failed",
       details: (error as Error).message
     });
   }
