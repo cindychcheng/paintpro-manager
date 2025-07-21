@@ -102,7 +102,7 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
     setIsSubmitting(true);
     try {
       // Call API to update estimate
-      const response = await fetch(`http://localhost:5001/api/estimates/${estimate.id}`, {
+      const response = await fetch(`/api/estimates/${estimate.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

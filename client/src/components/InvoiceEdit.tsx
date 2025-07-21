@@ -54,7 +54,7 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
     setIsSubmitting(true);
     try {
       // Call API to update invoice
-      const response = await fetch(`http://localhost:5001/api/invoices/${invoice.id}`, {
+      const response = await fetch(`/api/invoices/${invoice.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
