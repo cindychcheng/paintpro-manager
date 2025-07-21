@@ -125,16 +125,15 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   // Estimate details in header area
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text('Estimate Date:', 150, estimateHeaderY + 15);
-  doc.text(formatDate(estimate.created_at), 150, estimateHeaderY + 20);
+  doc.text(`Estimate Date: ${formatDate(estimate.created_at)}`, 150, estimateHeaderY + 15);
   
+  let detailY = estimateHeaderY + 22;
   if (estimate.valid_until) {
-    doc.text('Valid Until:', 150, estimateHeaderY + 26);
-    doc.text(formatDate(estimate.valid_until), 150, estimateHeaderY + 31);
+    doc.text(`Valid Until: ${formatDate(estimate.valid_until)}`, 150, detailY);
+    detailY += 7;
   }
   
-  doc.text('Revision:', 150, estimateHeaderY + 37);
-  doc.text(`#${estimate.revision_number}`, 150, estimateHeaderY + 42);
+  doc.text(`Revision: #${estimate.revision_number}`, 150, detailY);
   
   // Estimate title  
   yPosition = Math.max(yPosition + 15, estimateHeaderY + 55); // Ensure we're below header details
@@ -377,20 +376,19 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   // Invoice details in header area
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text('Invoice Date:', 150, invoiceHeaderY + 15);
-  doc.text(formatDate(invoice.created_at), 150, invoiceHeaderY + 20);
+  doc.text(`Invoice Date: ${formatDate(invoice.created_at)}`, 150, invoiceHeaderY + 15);
   
+  let detailY = invoiceHeaderY + 22;
   if (invoice.due_date) {
-    doc.text('Due Date:', 150, invoiceHeaderY + 26);
-    doc.text(formatDate(invoice.due_date), 150, invoiceHeaderY + 31);
+    doc.text(`Due Date: ${formatDate(invoice.due_date)}`, 150, detailY);
+    detailY += 7;
   }
   
-  doc.text('Payment Terms:', 150, invoiceHeaderY + 37);
-  doc.text(invoice.payment_terms, 150, invoiceHeaderY + 42);
+  doc.text(`Payment Terms: ${invoice.payment_terms}`, 150, detailY);
+  detailY += 7;
   
   if (invoice.estimate_number) {
-    doc.text('From Estimate:', 150, invoiceHeaderY + 48);
-    doc.text(invoice.estimate_number, 150, invoiceHeaderY + 53);
+    doc.text(`From Estimate: ${invoice.estimate_number}`, 150, detailY);
   }
   
   // Invoice title
