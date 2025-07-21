@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Save, ArrowLeft, AlertCircle, Edit3 } from 'lucide-react';
-import { Estimate } from '../services/api';
+import { Save, ArrowLeft, AlertCircle, Edit3, Plus, Trash2 } from 'lucide-react';
+import { Estimate, ProjectArea } from '../services/api';
 
 interface EstimateEditProps {
   estimate: Estimate;
@@ -14,6 +14,7 @@ interface EditableEstimateData {
   valid_until: string;
   markup_percentage: number;
   terms_and_notes: string;
+  project_areas: ProjectArea[];
 }
 
 const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel }) => {
@@ -22,7 +23,8 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
     description: estimate.description || '',
     valid_until: estimate.valid_until || '',
     markup_percentage: estimate.markup_percentage,
-    terms_and_notes: estimate.terms_and_notes || ''
+    terms_and_notes: estimate.terms_and_notes || '',
+    project_areas: estimate.project_areas || []
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,6 +37,47 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
     }).format(amount);
   };
 
+  const addProjectArea = () => {
+    setFormData(prev => ({
+      ...prev,
+      project_areas: [...prev.project_areas, {
+        area_name: '',
+        area_type: 'indoor',
+        surface_type: 'drywall',
+        square_footage: 0,
+        ceiling_height: 8,
+        prep_requirements: '',
+        paint_type: 'Latex',
+        paint_brand: 'Benjamin Moore',
+        paint_color: '',
+        finish_type: 'Eggshell',
+        number_of_coats: 2,
+        labor_hours: 0,
+        labor_rate: 45,
+        material_cost: 0,
+        notes: ''
+      }]
+    }));
+  };
+
+  const removeProjectArea = (index: number) => {
+    if (formData.project_areas.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        project_areas: prev.project_areas.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateProjectArea = (index: number, field: keyof ProjectArea, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      project_areas: prev.project_areas.map((area, i) => 
+        i === index ? { ...area, [field]: value } : area
+      )
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -44,6 +87,12 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
     if (formData.markup_percentage < 0 || formData.markup_percentage > 100) {
       newErrors.markup_percentage = 'Markup percentage must be between 0 and 100';
     }
+    if (formData.project_areas.length === 0) newErrors.areas = 'At least one project area is required';
+    
+    formData.project_areas.forEach((area, index) => {
+      if (!area.area_name.trim()) newErrors[`area_${index}_name`] = 'Area name is required';
+      if (!area.square_footage || area.square_footage <= 0) newErrors[`area_${index}_sqft`] = 'Square footage must be greater than 0';
+    });
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -251,6 +300,132 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
             </div>
           </div>
         )}
+
+        {/* Project Areas */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Project Areas</h3>
+            <button
+              type="button"
+              onClick={addProjectArea}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Add Area
+            </button>
+          </div>
+
+          {errors.areas && <p className="text-red-500 text-sm mb-4">{errors.areas}</p>}
+
+          <div className="space-y-6">
+            {formData.project_areas.map((area, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">Area {index + 1}</h4>
+                  {formData.project_areas.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeProjectArea(index)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Area Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={area.area_name}
+                      onChange={(e) => updateProjectArea(index, 'area_name', e.target.value)}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors[`area_${index}_name`] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="e.g., Living Room"
+                    />
+                    {errors[`area_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`area_${index}_name`]}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Area Type
+                    </label>
+                    <select
+                      value={area.area_type}
+                      onChange={(e) => updateProjectArea(index, 'area_type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="indoor">Indoor</option>
+                      <option value="outdoor">Outdoor</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Square Footage *
+                    </label>
+                    <input
+                      type="number"
+                      value={area.square_footage}
+                      onChange={(e) => updateProjectArea(index, 'square_footage', parseFloat(e.target.value) || 0)}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors[`area_${index}_sqft`] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      min="0"
+                      step="0.1"
+                    />
+                    {errors[`area_${index}_sqft`] && <p className="text-red-500 text-xs mt-1">{errors[`area_${index}_sqft`]}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Paint Color
+                    </label>
+                    <input
+                      type="text"
+                      value={area.paint_color}
+                      onChange={(e) => updateProjectArea(index, 'paint_color', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Swiss Coffee"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Labor Hours
+                    </label>
+                    <input
+                      type="number"
+                      value={area.labor_hours}
+                      onChange={(e) => updateProjectArea(index, 'labor_hours', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Material Cost ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.material_cost}
+                      onChange={(e) => updateProjectArea(index, 'material_cost', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Cost Summary Display */}
         <div className="bg-white rounded-lg shadow p-6">
