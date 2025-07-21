@@ -1030,9 +1030,8 @@ app.patch('/api/estimates/:id', async (req, res) => {
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(id);
 
-    await db.run(`UPDATE estimates SET ${updates.join(', ')} WHERE id = ?`, values);
+    await db.run(`UPDATE estimates SET ${updates.join(', ')} WHERE id = ?`, [...values, id]);
     
     // Handle project areas update if provided
     if (project_areas && Array.isArray(project_areas)) {
