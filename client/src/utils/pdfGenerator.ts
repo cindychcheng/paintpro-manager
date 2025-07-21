@@ -209,7 +209,24 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
     yPosition = (doc as any).lastAutoTable.finalY + 10;
   }
   
-  // Cost breakdown
+  // Two-column layout: Terms and Notes on left, Cost breakdown on right
+  const afterTableY = yPosition;
+  
+  // Left column: Terms and Notes
+  if (estimate.terms_and_notes && estimate.terms_and_notes.trim()) {
+    doc.setFontSize(11);
+    doc.setTextColor(37, 99, 235); // Blue header
+    doc.text('Terms and Notes:', 20, yPosition);
+    
+    yPosition += 8;
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    const splitTerms = doc.splitTextToSize(estimate.terms_and_notes, 85); // Narrower width for left column
+    doc.text(splitTerms, 20, yPosition);
+  }
+  
+  // Right column: Cost breakdown
+  const costStartY = afterTableY;
   const costData = [
     ['Labor Cost', formatCurrency(estimate.labor_cost)],
     ['Material Cost', formatCurrency(estimate.material_cost)],
@@ -218,60 +235,29 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   ];
   
   autoTable(doc, {
-    startY: yPosition,
+    startY: costStartY,
     body: costData,
     theme: 'plain',
     bodyStyles: { fontSize: 10, cellPadding: 3 },
     columnStyles: {
-      0: { cellWidth: 140, halign: 'right', fontStyle: 'bold' },
-      1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+      0: { cellWidth: 65, halign: 'right', fontStyle: 'bold' },
+      1: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: 20, right: 20 }
+    margin: { left: 115, right: 20 } // Position on right side
   });
   
-  // Total highlight - with proper spacing
-  yPosition = (doc as any).lastAutoTable.finalY + 10; // More spacing after table
+  // Total highlight - positioned on right side
+  const totalY = (doc as any).lastAutoTable.finalY + 5;
   doc.setFillColor(37, 99, 235);
-  doc.rect(140, yPosition, 50, 12, 'F'); // Increased height and proper position
+  doc.rect(140, totalY, 50, 12, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, yPosition + 7, { align: 'center' }); // Better vertical centering
+  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, totalY + 7, { align: 'center' });
   
-  yPosition += 20; // More space after highlight box
-  
-  // Terms and Notes section - with better spacing control
-  if (estimate.terms_and_notes && estimate.terms_and_notes.trim()) {
-    // Start new page if needed for terms and notes
-    if (yPosition > 200) {
-      doc.addPage();
-      yPosition = 20;
-    }
-    
-    doc.setFontSize(11);
-    doc.setTextColor(37, 99, 235); // Blue header
-    doc.text('Terms and Notes:', 20, yPosition);
-    
-    yPosition += 10; // Increased spacing
-    doc.setFontSize(9);
-    doc.setTextColor(40, 40, 40);
-    const splitTerms = doc.splitTextToSize(estimate.terms_and_notes, 170);
-    
-    // Ensure we have enough space or start new page
-    const neededSpace = splitTerms.length * 5 + 20;
-    if (yPosition + neededSpace > 270) {
-      doc.addPage();
-      yPosition = 20;
-      doc.setFontSize(11);
-      doc.setTextColor(37, 99, 235);
-      doc.text('Terms and Notes:', 20, yPosition);
-      yPosition += 10;
-      doc.setFontSize(9);
-      doc.setTextColor(40, 40, 40);
-    }
-    
-    doc.text(splitTerms, 20, yPosition);
-    yPosition += splitTerms.length * 5;
-  }
+  // Update yPosition to the bottom of whichever column is longer
+  const termsEndY = estimate.terms_and_notes ? 
+    afterTableY + 8 + Math.ceil(doc.splitTextToSize(estimate.terms_and_notes, 85).length * 4) : afterTableY;
+  yPosition = Math.max(termsEndY, totalY + 20);
   
   // Footer
   const pageHeight = doc.internal.pageSize.height;
