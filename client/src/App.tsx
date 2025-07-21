@@ -7,7 +7,7 @@ import InvoiceDetail from './components/InvoiceDetail';
 import PaymentForm from './components/PaymentForm';
 import ClientList from './components/ClientList';
 import ClientForm from './components/ClientForm';
-import { Home } from 'lucide-react';
+import { Home, Menu, X } from 'lucide-react';
 import { useEstimates } from './hooks/useEstimates';
 import { useInvoices } from './hooks/useInvoices';
 import { CreateEstimateRequest, Invoice, RecordPaymentRequest } from './services/api';
@@ -23,6 +23,7 @@ function App() {
   const [isEstimateEditing, setIsEstimateEditing] = useState(false);
   const [isInvoiceEditing, setIsInvoiceEditing] = useState(false);
   const [isClientEditing, setIsClientEditing] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Get estimates and invoices for dashboard stats
   const { estimates: dashboardEstimates } = useEstimates({ limit: 100 });
@@ -224,7 +225,7 @@ function App() {
                   Streamline your painting business with professional estimates, invoices, and client management.
                 </p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
                   <button 
                     onClick={() => setCurrentView('estimates')}
                     className="group bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 p-8 rounded-2xl border border-blue-200/50 hover:border-blue-300/50 transition-all duration-300 text-left shadow-lg hover:shadow-xl hover:-translate-y-1"
@@ -277,7 +278,7 @@ function App() {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <div className="bg-white/70 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300">
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-4">
@@ -346,7 +347,7 @@ function App() {
             {/* Quick Actions */}
             <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8">
               <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-purple-800 bg-clip-text text-transparent mb-6">Quick Actions</h3>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <button 
                   onClick={handleCreateEstimate}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-1"
@@ -379,25 +380,27 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
-      <header className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 backdrop-blur-lg shadow-xl border-b border-white/10 sticky top-0 z-10">
+      <header className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 backdrop-blur-lg shadow-xl border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
+            {/* Logo */}
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => setCurrentView('dashboard')}
-                className="flex items-center gap-3 text-2xl font-bold text-white hover:text-purple-200 transition-all duration-300"
+                onClick={() => { setCurrentView('dashboard'); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-3 text-lg sm:text-2xl font-bold text-white hover:text-purple-200 transition-all duration-300"
               >
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                   </svg>
                 </div>
-                PaintPro Manager
+                <span className="hidden sm:inline">PaintPro Manager</span>
+                <span className="sm:hidden">PaintPro</span>
               </button>
             </div>
             
-            {/* Navigation */}
-            <nav className="flex space-x-2">
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex space-x-2">
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
@@ -451,7 +454,98 @@ function App() {
                 Clients
               </button>
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
+
+          {/* Mobile Menu */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden border-t border-white/10 py-4">
+              <nav className="flex flex-col space-y-2">
+                <button
+                  onClick={() => { setCurrentView('dashboard'); setIsMobileMenuOpen(false); }}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 ${
+                    currentView === 'dashboard' 
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg' 
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                  </svg>
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => { setCurrentView('estimates'); setIsMobileMenuOpen(false); }}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 ${
+                    currentView === 'estimates' || currentView === 'estimate-form' || currentView === 'estimate-detail'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg' 
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  Estimates
+                </button>
+                <button
+                  onClick={() => { setCurrentView('invoices'); setIsMobileMenuOpen(false); }}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 ${
+                    currentView === 'invoices' || currentView === 'invoice-detail'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg' 
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                  </svg>
+                  Invoices
+                </button>
+                <button
+                  onClick={() => { setCurrentView('clients'); setIsMobileMenuOpen(false); }}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 ${
+                    currentView === 'clients' || currentView === 'client-form' || currentView === 'client-detail' 
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg' 
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                  </svg>
+                  Clients
+                </button>
+                
+                {/* Quick Actions in Mobile Menu */}
+                <div className="border-t border-white/10 pt-4 mt-4">
+                  <p className="text-slate-400 text-xs font-medium mb-3 px-4">QUICK ACTIONS</p>
+                  <button
+                    onClick={() => { handleCreateEstimate(); setIsMobileMenuOpen(false); }}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 text-slate-300 hover:text-white hover:bg-white/10"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Create New Estimate
+                  </button>
+                  <button
+                    onClick={() => { handleCreateClient(); setIsMobileMenuOpen(false); }}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 text-slate-300 hover:text-white hover:bg-white/10"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Create New Client
+                  </button>
+                </div>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
       
