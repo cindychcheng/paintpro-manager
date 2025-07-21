@@ -31,7 +31,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "morgan": "^1.10.0",
-    "multer": "^2.0.1",
+    "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
     "sharp": "^0.34.3",

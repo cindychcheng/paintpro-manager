@@ -59,18 +59,50 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   doc.setFont('helvetica');
   
   let yPosition = 20;
+  let logoWidth = 0;
   
-  // Header with company info
-  doc.setFontSize(20);
+  // Add logo if available
+  if (opts.logo && opts.logo !== '/placeholder-logo.png' && opts.logo.startsWith('data:image/')) {
+    try {
+      // Determine image format from data URL
+      let imageFormat = 'JPEG';
+      if (opts.logo.includes('data:image/png')) {
+        imageFormat = 'PNG';
+      } else if (opts.logo.includes('data:image/gif')) {
+        imageFormat = 'GIF';
+      }
+      
+      // Add logo on the left
+      doc.addImage(opts.logo, imageFormat, 20, yPosition - 5, 25, 25);
+      logoWidth = 30; // Logo width + margin
+    } catch (error) {
+      console.warn('Could not add logo to PDF:', error);
+    }
+  }
+  
+  // Header with company info - positioned to the right of logo
+  const headerStartX = 20 + logoWidth;
+  doc.setFontSize(18);
   doc.setTextColor(37, 99, 235); // Blue color
-  doc.text(opts.companyName || 'Painting Business', 20, yPosition);
+  doc.text(opts.companyName || 'Painting Business', headerStartX, yPosition);
   
-  yPosition += 8;
-  doc.setFontSize(10);
+  yPosition += 7;
+  doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text(opts.companyAddress || '', 20, yPosition);
-  yPosition += 5;
-  doc.text(`Phone: ${opts.companyPhone || ''} | Email: ${opts.companyEmail || ''}`, 20, yPosition);
+  
+  // Split address into lines to prevent overlap
+  const addressLines = (opts.companyAddress || '').split('\n');
+  for (const line of addressLines) {
+    if (line.trim()) {
+      doc.text(line.trim(), headerStartX, yPosition);
+      yPosition += 4;
+    }
+  }
+  
+  // Phone and Email on separate lines to prevent overlap
+  doc.text(`Phone: ${opts.companyPhone || ''}`, headerStartX, yPosition);
+  yPosition += 4;
+  doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
   // Estimate title and number
   yPosition += 15;
@@ -243,18 +275,50 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   doc.setFont('helvetica');
   
   let yPosition = 20;
+  let logoWidth = 0;
   
-  // Header with company info
-  doc.setFontSize(20);
+  // Add logo if available
+  if (opts.logo && opts.logo !== '/placeholder-logo.png' && opts.logo.startsWith('data:image/')) {
+    try {
+      // Determine image format from data URL
+      let imageFormat = 'JPEG';
+      if (opts.logo.includes('data:image/png')) {
+        imageFormat = 'PNG';
+      } else if (opts.logo.includes('data:image/gif')) {
+        imageFormat = 'GIF';
+      }
+      
+      // Add logo on the left
+      doc.addImage(opts.logo, imageFormat, 20, yPosition - 5, 25, 25);
+      logoWidth = 30; // Logo width + margin
+    } catch (error) {
+      console.warn('Could not add logo to PDF:', error);
+    }
+  }
+  
+  // Header with company info - positioned to the right of logo
+  const headerStartX = 20 + logoWidth;
+  doc.setFontSize(18);
   doc.setTextColor(37, 99, 235); // Blue color
-  doc.text(opts.companyName || 'Painting Business', 20, yPosition);
+  doc.text(opts.companyName || 'Painting Business', headerStartX, yPosition);
   
-  yPosition += 8;
-  doc.setFontSize(10);
+  yPosition += 7;
+  doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text(opts.companyAddress || '', 20, yPosition);
-  yPosition += 5;
-  doc.text(`Phone: ${opts.companyPhone || ''} | Email: ${opts.companyEmail || ''}`, 20, yPosition);
+  
+  // Split address into lines to prevent overlap
+  const addressLines = (opts.companyAddress || '').split('\n');
+  for (const line of addressLines) {
+    if (line.trim()) {
+      doc.text(line.trim(), headerStartX, yPosition);
+      yPosition += 4;
+    }
+  }
+  
+  // Phone and Email on separate lines to prevent overlap
+  doc.text(`Phone: ${opts.companyPhone || ''}`, headerStartX, yPosition);
+  yPosition += 4;
+  doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
   // Invoice title and number
   yPosition += 15;

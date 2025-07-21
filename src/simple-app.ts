@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import multer from 'multer';
 import { db } from './models/database';
 import { NumberService } from './services/numberService';
 
@@ -16,6 +17,23 @@ if (!process.env.NODE_ENV) {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // Serve static files from the React app build
 let clientBuildPath = '';
@@ -1453,18 +1471,29 @@ app.put('/api/company-settings', async (req, res) => {
   }
 });
 
-// Basic logo upload endpoint (stores file as base64 for simplicity)
-app.post('/api/upload-logo', async (req, res) => {
+// Logo upload endpoint with actual file handling
+app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
   try {
-    // For simplicity, we'll just return a success message
-    // In a real app, you'd use multer and store the file properly
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    // Convert file to base64 for storage in database
+    const base64String = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    
     res.json({
       success: true,
-      url: '/placeholder-logo.png',
-      message: 'Logo upload simulated (would need proper file storage in production)'
+      url: base64String,
+      message: 'Logo uploaded successfully'
     });
   } catch (error) {
     console.error('Error uploading logo:', error);
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'File size too large. Maximum 5MB allowed.' });
+      }
+      return res.status(400).json({ success: false, error: error.message });
+    }
     res.status(500).json({ success: false, error: 'Failed to upload logo' });
   }
 });
