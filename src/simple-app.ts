@@ -413,11 +413,41 @@ app.get('/api/estimates/:id/revisions', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const revisions = await db.getEstimateRevisionHistory(parseInt(id));
+    // Get revision logs with proper formatting for the frontend
+    const revisionLogs = await db.all(`
+      SELECT 
+        er.*,
+        e.estimate_number,
+        e.title
+      FROM estimate_revisions er
+      JOIN estimates e ON er.estimate_id = e.id
+      WHERE er.estimate_id = ?
+      ORDER BY er.revision_number ASC
+    `, [id]);
+    
+    // Format the data for the frontend version history component
+    const formattedRevisions = revisionLogs.map(log => ({
+      id: log.id,
+      estimate_number: log.estimate_number,
+      title: log.title,
+      revision_number: log.revision_number,
+      total_amount: log.new_total_amount,
+      labor_cost: 0, // We don't track this separately in logs yet
+      material_cost: 0, // We don't track this separately in logs yet
+      markup_percentage: log.new_markup_percentage,
+      status: 'revised',
+      created_at: log.created_at,
+      revision_type: log.revision_type,
+      change_summary: log.change_summary,
+      approval_status: log.approval_status,
+      approved_by: log.approved_by,
+      approved_at: log.approved_at,
+      is_current_version: false
+    }));
     
     res.json({
       success: true,
-      data: revisions
+      data: formattedRevisions
     });
   } catch (error) {
     console.error('Error getting estimate revisions:', error);
