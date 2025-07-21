@@ -240,7 +240,13 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   yPosition += 20; // More space after highlight box
   
   // Terms and Notes section - with better spacing control
-  if (estimate.terms_and_notes && estimate.terms_and_notes.trim() && yPosition < 220) {
+  if (estimate.terms_and_notes && estimate.terms_and_notes.trim()) {
+    // Start new page if needed for terms and notes
+    if (yPosition > 200) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
     doc.setFontSize(11);
     doc.setTextColor(37, 99, 235); // Blue header
     doc.text('Terms and Notes:', 20, yPosition);
@@ -249,10 +255,22 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
     doc.setFontSize(9);
     doc.setTextColor(40, 40, 40);
     const splitTerms = doc.splitTextToSize(estimate.terms_and_notes, 170);
-    const maxLines = Math.floor((240 - yPosition) / 5); // More conservative spacing
-    const termLines = splitTerms.slice(0, Math.max(1, maxLines)); // Always show at least 1 line
-    doc.text(termLines, 20, yPosition);
-    yPosition += termLines.length * 5; // More line spacing
+    
+    // Ensure we have enough space or start new page
+    const neededSpace = splitTerms.length * 5 + 20;
+    if (yPosition + neededSpace > 270) {
+      doc.addPage();
+      yPosition = 20;
+      doc.setFontSize(11);
+      doc.setTextColor(37, 99, 235);
+      doc.text('Terms and Notes:', 20, yPosition);
+      yPosition += 10;
+      doc.setFontSize(9);
+      doc.setTextColor(40, 40, 40);
+    }
+    
+    doc.text(splitTerms, 20, yPosition);
+    yPosition += splitTerms.length * 5;
   }
   
   // Footer
@@ -489,7 +507,13 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   }
   
   // Terms and Notes section - with better spacing control
-  if (invoice.terms_and_notes && invoice.terms_and_notes.trim() && yPosition < 220) {
+  if (invoice.terms_and_notes && invoice.terms_and_notes.trim()) {
+    // Start new page if needed for terms and notes
+    if (yPosition > 200) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
     doc.setFontSize(11);
     doc.setTextColor(37, 99, 235); // Blue header
     doc.text('Terms and Notes:', 20, yPosition);
@@ -498,10 +522,22 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
     doc.setFontSize(9);
     doc.setTextColor(40, 40, 40);
     const splitTerms = doc.splitTextToSize(invoice.terms_and_notes, 170);
-    const maxLines = Math.floor((240 - yPosition) / 5); // More conservative spacing
-    const termLines = splitTerms.slice(0, Math.max(1, maxLines)); // Always show at least 1 line
-    doc.text(termLines, 20, yPosition);
-    yPosition += termLines.length * 5; // More line spacing
+    
+    // Ensure we have enough space or start new page
+    const neededSpace = splitTerms.length * 5 + 20;
+    if (yPosition + neededSpace > 270) {
+      doc.addPage();
+      yPosition = 20;
+      doc.setFontSize(11);
+      doc.setTextColor(37, 99, 235);
+      doc.text('Terms and Notes:', 20, yPosition);
+      yPosition += 10;
+      doc.setFontSize(9);
+      doc.setTextColor(40, 40, 40);
+    }
+    
+    doc.text(splitTerms, 20, yPosition);
+    yPosition += splitTerms.length * 5;
   }
   
   // Footer
