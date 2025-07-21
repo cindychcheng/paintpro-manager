@@ -509,7 +509,24 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
     yPosition = (doc as any).lastAutoTable.finalY + 10;
   }
   
-  // Payment summary
+  // Two-column layout: Terms and Notes on left, Payment summary on right
+  const afterTableY = yPosition;
+  
+  // Left column: Terms and Notes
+  if (invoice.terms_and_notes && invoice.terms_and_notes.trim()) {
+    doc.setFontSize(11);
+    doc.setTextColor(37, 99, 235); // Blue header
+    doc.text('Terms and Notes:', 20, yPosition);
+    
+    yPosition += 8;
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    const splitTerms = doc.splitTextToSize(invoice.terms_and_notes, 85); // Narrower width for left column
+    doc.text(splitTerms, 20, yPosition);
+  }
+  
+  // Right column: Payment summary
+  const paymentStartY = afterTableY;
   const outstandingAmount = invoice.total_amount - invoice.paid_amount;
   const paymentData = [
     ['Total Amount', formatCurrency(invoice.total_amount)],
@@ -518,28 +535,31 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   ];
   
   autoTable(doc, {
-    startY: yPosition,
+    startY: paymentStartY,
     body: paymentData,
     theme: 'plain',
     bodyStyles: { fontSize: 10, cellPadding: 3 },
     columnStyles: {
-      0: { cellWidth: 140, halign: 'right', fontStyle: 'bold' },
-      1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+      0: { cellWidth: 65, halign: 'right', fontStyle: 'bold' },
+      1: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: 20, right: 20 }
+    margin: { left: 85, right: 20 } // Align with right side
   });
   
-  // Outstanding balance highlight - positioned to avoid overlap
-  yPosition = (doc as any).lastAutoTable.finalY + 10; // More spacing after table
+  // Outstanding balance highlight - positioned to align with payment table
+  const balanceY = (doc as any).lastAutoTable.finalY + 5;
   const balanceColor = outstandingAmount > 0 ? [239, 68, 68] : [34, 197, 94];
   doc.setFillColor(balanceColor[0], balanceColor[1], balanceColor[2]);
-  doc.rect(140, yPosition, 50, 12, 'F'); // Increased height further and proper position
+  doc.rect(125, balanceY, 50, 12, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   const balanceText = outstandingAmount > 0 ? `DUE: ${formatCurrency(outstandingAmount)}` : 'PAID IN FULL';
-  doc.text(balanceText, 165, yPosition + 7, { align: 'center' }); // Better vertical centering
+  doc.text(balanceText, 150, balanceY + 7, { align: 'center' });
   
-  yPosition += 20; // More space after highlight box
+  // Update yPosition to the bottom of whichever column is longer
+  const termsEndY = invoice.terms_and_notes ? 
+    afterTableY + 8 + Math.ceil(doc.splitTextToSize(invoice.terms_and_notes, 85).length * 4) : afterTableY;
+  yPosition = Math.max(termsEndY, balanceY + 20);
   
   // Payment history (if any) - with better spacing
   if (invoice.payments && invoice.payments.length > 0 && yPosition < 180) {
@@ -574,39 +594,6 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
     yPosition = (doc as any).lastAutoTable.finalY + 15; // More space after table
   }
   
-  // Terms and Notes section - with better spacing control
-  if (invoice.terms_and_notes && invoice.terms_and_notes.trim()) {
-    // Start new page if needed for terms and notes
-    if (yPosition > 200) {
-      doc.addPage();
-      yPosition = 20;
-    }
-    
-    doc.setFontSize(11);
-    doc.setTextColor(37, 99, 235); // Blue header
-    doc.text('Terms and Notes:', 20, yPosition);
-    
-    yPosition += 10; // Increased spacing
-    doc.setFontSize(9);
-    doc.setTextColor(40, 40, 40);
-    const splitTerms = doc.splitTextToSize(invoice.terms_and_notes, 170);
-    
-    // Ensure we have enough space or start new page
-    const neededSpace = splitTerms.length * 5 + 20;
-    if (yPosition + neededSpace > 270) {
-      doc.addPage();
-      yPosition = 20;
-      doc.setFontSize(11);
-      doc.setTextColor(37, 99, 235);
-      doc.text('Terms and Notes:', 20, yPosition);
-      yPosition += 10;
-      doc.setFontSize(9);
-      doc.setTextColor(40, 40, 40);
-    }
-    
-    doc.text(splitTerms, 20, yPosition);
-    yPosition += splitTerms.length * 5;
-  }
   
   // Footer
   const pageHeight = doc.internal.pageSize.height;
