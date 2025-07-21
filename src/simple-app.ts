@@ -482,6 +482,7 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
     const { changes = {} } = req.body;
     
     console.log("REVISION: Updating estimate", id, "with changes:", changes);
+    console.log("REVISION: Full request body:", req.body);
     
     // Check estimate status first
     const currentEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
@@ -561,11 +562,26 @@ app.post("/api/estimates/:id/revisions", async (req, res) => {
       }
     }
     
-    console.log("REVISION: Update successful");
+    // Verify the update worked
+    const updatedEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
+    console.log("REVISION: Update successful. New revision #", updatedEstimate.revision_number);
+    console.log("REVISION: Updated estimate:", {
+      id: updatedEstimate.id,
+      revision_number: updatedEstimate.revision_number,
+      markup_percentage: updatedEstimate.markup_percentage,
+      total_amount: updatedEstimate.total_amount
+    });
     
     res.json({
       success: true,
-      message: "Estimate revision created successfully"
+      message: "Estimate revision created successfully",
+      data: {
+        revision_number: updatedEstimate.revision_number,
+        updated_values: {
+          markup_percentage: updatedEstimate.markup_percentage,
+          total_amount: updatedEstimate.total_amount
+        }
+      }
     });
     
   } catch (error) {
