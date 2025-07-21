@@ -104,18 +104,12 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   yPosition += 4;
   doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
-  // Estimate title and number
-  yPosition += 15;
-  doc.setFontSize(24);
-  doc.setTextColor(0, 0, 0);
-  doc.text('ESTIMATE', 20, yPosition);
-  
+  // Estimate number and status - positioned in header area
+  const estimateHeaderY = 20;
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
-  doc.text(estimate.estimate_number, 150, yPosition);
+  doc.text(estimate.estimate_number, 150, estimateHeaderY);
   
-  // Status badge
-  yPosition += 8;
   doc.setFontSize(10);
   const statusColors: { [key: string]: [number, number, number] } = {
     'draft': [156, 163, 175],
@@ -126,7 +120,27 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   };
   const statusColor = statusColors[estimate.status] || [156, 163, 175];
   doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-  doc.text(estimate.status.toUpperCase(), 150, yPosition);
+  doc.text(estimate.status.toUpperCase(), 150, estimateHeaderY + 7);
+  
+  // Estimate details in header area
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Estimate Date:', 150, estimateHeaderY + 15);
+  doc.text(formatDate(estimate.created_at), 150, estimateHeaderY + 20);
+  
+  if (estimate.valid_until) {
+    doc.text('Valid Until:', 150, estimateHeaderY + 26);
+    doc.text(formatDate(estimate.valid_until), 150, estimateHeaderY + 31);
+  }
+  
+  doc.text('Revision:', 150, estimateHeaderY + 37);
+  doc.text(`#${estimate.revision_number}`, 150, estimateHeaderY + 42);
+  
+  // Estimate title
+  yPosition += 15;
+  doc.setFontSize(24);
+  doc.setTextColor(0, 0, 0);
+  doc.text('ESTIMATE', 20, yPosition);
   
   // Client information - Two column layout
   yPosition += 15;
@@ -184,20 +198,6 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   
   // Set yPosition to the bottom of whichever column is longer
   yPosition = Math.max(billY, jobY);
-  
-  // Estimate details
-  doc.setFontSize(10);
-  const detailsY = yPosition - 20;
-  doc.text('Estimate Date:', 120, detailsY);
-  doc.text(formatDate(estimate.created_at), 160, detailsY);
-  
-  if (estimate.valid_until) {
-    doc.text('Valid Until:', 120, detailsY + 5);
-    doc.text(formatDate(estimate.valid_until), 160, detailsY + 5);
-  }
-  
-  doc.text('Revision:', 120, detailsY + 10);
-  doc.text(`#${estimate.revision_number}`, 160, detailsY + 10);
   
   // Project title and description
   yPosition += 15;
@@ -363,22 +363,41 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   yPosition += 4;
   doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
-  // Invoice title and number
+  // Invoice number and status - positioned in header area
+  const invoiceHeaderY = 20;
+  doc.setFontSize(16);
+  doc.setTextColor(37, 99, 235);
+  doc.text(invoice.invoice_number, 150, invoiceHeaderY);
+  
+  doc.setFontSize(10);
+  const statusColor = invoice.status === 'paid' ? [34, 197, 94] : [239, 68, 68];
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+  doc.text(invoice.status.toUpperCase(), 150, invoiceHeaderY + 7);
+  
+  // Invoice details in header area
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Invoice Date:', 150, invoiceHeaderY + 15);
+  doc.text(formatDate(invoice.created_at), 150, invoiceHeaderY + 20);
+  
+  if (invoice.due_date) {
+    doc.text('Due Date:', 150, invoiceHeaderY + 26);
+    doc.text(formatDate(invoice.due_date), 150, invoiceHeaderY + 31);
+  }
+  
+  doc.text('Payment Terms:', 150, invoiceHeaderY + 37);
+  doc.text(invoice.payment_terms, 150, invoiceHeaderY + 42);
+  
+  if (invoice.estimate_number) {
+    doc.text('From Estimate:', 150, invoiceHeaderY + 48);
+    doc.text(invoice.estimate_number, 150, invoiceHeaderY + 53);
+  }
+  
+  // Invoice title
   yPosition += 15;
   doc.setFontSize(24);
   doc.setTextColor(0, 0, 0);
   doc.text('INVOICE', 20, yPosition);
-  
-  doc.setFontSize(16);
-  doc.setTextColor(37, 99, 235);
-  doc.text(invoice.invoice_number, 150, yPosition);
-  
-  // Status and payment status
-  yPosition += 8;
-  doc.setFontSize(10);
-  const statusColor = invoice.status === 'paid' ? [34, 197, 94] : [239, 68, 68];
-  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-  doc.text(invoice.status.toUpperCase(), 150, yPosition);
   
   // Client information - Two column layout
   yPosition += 15;
@@ -436,25 +455,6 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   
   // Set yPosition to the bottom of whichever column is longer
   yPosition = Math.max(billY, jobY);
-  
-  // Invoice details
-  doc.setFontSize(10);
-  const detailsY = yPosition - 20;
-  doc.text('Invoice Date:', 120, detailsY);
-  doc.text(formatDate(invoice.created_at), 160, detailsY);
-  
-  if (invoice.due_date) {
-    doc.text('Due Date:', 120, detailsY + 5);
-    doc.text(formatDate(invoice.due_date), 160, detailsY + 5);
-  }
-  
-  doc.text('Payment Terms:', 120, detailsY + 10);
-  doc.text(invoice.payment_terms, 160, detailsY + 10);
-  
-  if (invoice.estimate_number) {
-    doc.text('From Estimate:', 120, detailsY + 15);
-    doc.text(invoice.estimate_number, 160, detailsY + 15);
-  }
   
   // Project title and description
   yPosition += 20;
