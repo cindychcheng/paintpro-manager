@@ -136,8 +136,8 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   doc.text('Revision:', 150, estimateHeaderY + 37);
   doc.text(`#${estimate.revision_number}`, 150, estimateHeaderY + 42);
   
-  // Estimate title
-  yPosition += 15;
+  // Estimate title  
+  yPosition = Math.max(yPosition + 15, estimateHeaderY + 55); // Ensure we're below header details
   doc.setFontSize(24);
   doc.setTextColor(0, 0, 0);
   doc.text('ESTIMATE', 20, yPosition);
@@ -394,7 +394,7 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   }
   
   // Invoice title
-  yPosition += 15;
+  yPosition = Math.max(yPosition + 15, invoiceHeaderY + 65); // Ensure we're below header details
   doc.setFontSize(24);
   doc.setTextColor(0, 0, 0);
   doc.text('INVOICE', 20, yPosition);
