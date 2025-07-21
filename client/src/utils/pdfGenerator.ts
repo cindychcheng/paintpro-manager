@@ -128,23 +128,62 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
   doc.text(estimate.status.toUpperCase(), 150, yPosition);
   
-  // Client information
+  // Client information - Two column layout
   yPosition += 15;
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
+  
+  // Bill To section (left column)
   doc.text('Bill To:', 20, yPosition);
   
-  yPosition += 8;
+  // Job Address section (right column)
+  const hasJobAddress = estimate.job_address || estimate.job_city || estimate.job_state || estimate.job_zip_code;
+  if (hasJobAddress) {
+    doc.text('Job Address:', 105, yPosition);
+  }
+  
+  const billStartY = yPosition + 8;
+  let billY = billStartY;
+  let jobY = billStartY;
+  
+  // Bill To details (left column)
   doc.setFontSize(10);
-  doc.text(estimate.client_name || 'N/A', 20, yPosition);
+  doc.text(estimate.client_name || 'N/A', 20, billY);
+  billY += 5;
+  
   if (estimate.client_email) {
-    yPosition += 5;
-    doc.text(estimate.client_email, 20, yPosition);
+    doc.text(estimate.client_email, 20, billY);
+    billY += 5;
   }
   if (estimate.client_phone) {
-    yPosition += 5;
-    doc.text(estimate.client_phone, 20, yPosition);
+    doc.text(estimate.client_phone, 20, billY);
+    billY += 5;
   }
+  if (estimate.client_address) {
+    doc.text(estimate.client_address, 20, billY);
+    billY += 5;
+  }
+  const clientLocation = [estimate.client_city, estimate.client_state, estimate.client_zip_code].filter(Boolean).join(', ');
+  if (clientLocation) {
+    doc.text(clientLocation, 20, billY);
+    billY += 5;
+  }
+  
+  // Job Address details (right column)
+  if (hasJobAddress) {
+    if (estimate.job_address) {
+      doc.text(estimate.job_address, 105, jobY);
+      jobY += 5;
+    }
+    const jobLocation = [estimate.job_city, estimate.job_state, estimate.job_zip_code].filter(Boolean).join(', ');
+    if (jobLocation) {
+      doc.text(jobLocation, 105, jobY);
+      jobY += 5;
+    }
+  }
+  
+  // Set yPosition to the bottom of whichever column is longer
+  yPosition = Math.max(billY, jobY);
   
   // Estimate details
   doc.setFontSize(10);
@@ -341,23 +380,62 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
   doc.text(invoice.status.toUpperCase(), 150, yPosition);
   
-  // Client information
+  // Client information - Two column layout
   yPosition += 15;
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
+  
+  // Bill To section (left column)
   doc.text('Bill To:', 20, yPosition);
   
-  yPosition += 8;
+  // Job Address section (right column)
+  const hasJobAddress = invoice.job_address || invoice.job_city || invoice.job_state || invoice.job_zip_code;
+  if (hasJobAddress) {
+    doc.text('Job Address:', 105, yPosition);
+  }
+  
+  const billStartY = yPosition + 8;
+  let billY = billStartY;
+  let jobY = billStartY;
+  
+  // Bill To details (left column)
   doc.setFontSize(10);
-  doc.text(invoice.client_name || 'N/A', 20, yPosition);
+  doc.text(invoice.client_name || 'N/A', 20, billY);
+  billY += 5;
+  
   if (invoice.client_email) {
-    yPosition += 5;
-    doc.text(invoice.client_email, 20, yPosition);
+    doc.text(invoice.client_email, 20, billY);
+    billY += 5;
   }
   if (invoice.client_phone) {
-    yPosition += 5;
-    doc.text(invoice.client_phone, 20, yPosition);
+    doc.text(invoice.client_phone, 20, billY);
+    billY += 5;
   }
+  if (invoice.client_address) {
+    doc.text(invoice.client_address, 20, billY);
+    billY += 5;
+  }
+  const clientLocation = [invoice.client_city, invoice.client_state, invoice.client_zip_code].filter(Boolean).join(', ');
+  if (clientLocation) {
+    doc.text(clientLocation, 20, billY);
+    billY += 5;
+  }
+  
+  // Job Address details (right column)
+  if (hasJobAddress) {
+    if (invoice.job_address) {
+      doc.text(invoice.job_address, 105, jobY);
+      jobY += 5;
+    }
+    const jobLocation = [invoice.job_city, invoice.job_state, invoice.job_zip_code].filter(Boolean).join(', ');
+    if (jobLocation) {
+      doc.text(jobLocation, 105, jobY);
+      jobY += 5;
+    }
+  }
+  
+  // Set yPosition to the bottom of whichever column is longer
+  yPosition = Math.max(billY, jobY);
   
   // Invoice details
   doc.setFontSize(10);

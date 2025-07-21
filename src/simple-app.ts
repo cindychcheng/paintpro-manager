@@ -943,6 +943,10 @@ app.get('/api/invoices/:id', async (req, res) => {
         c.city as client_city,
         c.state as client_state,
         c.zip_code as client_zip_code,
+        c.job_address,
+        c.job_city,
+        c.job_state,
+        c.job_zip_code,
         e.estimate_number
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id

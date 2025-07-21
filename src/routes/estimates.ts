@@ -100,7 +100,11 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response<ApiResponse<E
       c.address as client_address,
       c.city as client_city,
       c.state as client_state,
-      c.zip_code as client_zip_code
+      c.zip_code as client_zip_code,
+      c.job_address,
+      c.job_city,
+      c.job_state,
+      c.job_zip_code
     FROM estimates e
     LEFT JOIN clients c ON e.client_id = c.id
     WHERE e.id = ?

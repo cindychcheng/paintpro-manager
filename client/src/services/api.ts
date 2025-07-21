@@ -58,6 +58,14 @@ export interface Estimate {
   client_name?: string;
   client_email?: string;
   client_phone?: string;
+  client_address?: string;
+  client_city?: string;
+  client_state?: string;
+  client_zip_code?: string;
+  job_address?: string;
+  job_city?: string;
+  job_state?: string;
+  job_zip_code?: string;
   project_areas?: ProjectArea[];
 }
 
@@ -92,6 +100,14 @@ export interface Invoice {
   client_name?: string;
   client_email?: string;
   client_phone?: string;
+  client_address?: string;
+  client_city?: string;
+  client_state?: string;
+  client_zip_code?: string;
+  job_address?: string;
+  job_city?: string;
+  job_state?: string;
+  job_zip_code?: string;
   estimate_number?: string;
   outstanding_amount?: number;
   project_areas?: ProjectArea[];
