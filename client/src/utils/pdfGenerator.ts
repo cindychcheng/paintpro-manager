@@ -104,12 +104,34 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   yPosition += 4;
   doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
-  // Estimate number and status - positioned in header area
+  // Estimate number and details - positioned to align with business address area
   const estimateHeaderY = 20;
+  const businessAddressY = yPosition - 8; // Align with business address area
+  
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
   doc.text(estimate.estimate_number, 150, estimateHeaderY);
   
+  // Estimate details aligned with business address
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Estimate Date: ' + formatDate(estimate.created_at), 150, businessAddressY);
+  
+  let detailY = businessAddressY + 4;
+  if (estimate.valid_until) {
+    doc.text('Valid Until: ' + formatDate(estimate.valid_until), 150, detailY);
+    detailY += 4;
+  }
+  
+  doc.text('Revision: #' + estimate.revision_number, 150, detailY);
+  
+  // Estimate title with status aligned to it
+  yPosition = Math.max(yPosition + 15, estimateHeaderY + 35);
+  doc.setFontSize(24);
+  doc.setTextColor(0, 0, 0);
+  doc.text('ESTIMATE', 20, yPosition);
+  
+  // Status aligned with ESTIMATE title
   doc.setFontSize(10);
   const statusColors: { [key: string]: [number, number, number] } = {
     'draft': [156, 163, 175],
@@ -120,26 +142,7 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   };
   const statusColor = statusColors[estimate.status] || [156, 163, 175];
   doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-  doc.text(estimate.status.toUpperCase(), 150, estimateHeaderY + 7);
-  
-  // Estimate details in header area
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Estimate Date: ' + formatDate(estimate.created_at), 150, estimateHeaderY + 15);
-  
-  let detailY = estimateHeaderY + 20;
-  if (estimate.valid_until) {
-    doc.text('Valid Until: ' + formatDate(estimate.valid_until), 150, detailY);
-    detailY += 4;
-  }
-  
-  doc.text('Revision: #' + estimate.revision_number, 150, detailY);
-  
-  // Estimate title  
-  yPosition = Math.max(yPosition + 15, estimateHeaderY + 55); // Ensure we're below header details
-  doc.setFontSize(24);
-  doc.setTextColor(0, 0, 0);
-  doc.text('ESTIMATE', 20, yPosition);
+  doc.text(estimate.status.toUpperCase(), 150, yPosition);
   
   // Client information - Two column layout
   yPosition += 15;
@@ -362,23 +365,20 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   yPosition += 4;
   doc.text(`Email: ${opts.companyEmail || ''}`, headerStartX, yPosition);
   
-  // Invoice number and status - positioned in header area
+  // Invoice number and details - positioned to align with business address area
   const invoiceHeaderY = 20;
+  const businessAddressY = yPosition - 8; // Align with business address area
+  
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
   doc.text(invoice.invoice_number, 150, invoiceHeaderY);
   
-  doc.setFontSize(10);
-  const statusColor = invoice.status === 'paid' ? [34, 197, 94] : [239, 68, 68];
-  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-  doc.text(invoice.status.toUpperCase(), 150, invoiceHeaderY + 7);
-  
-  // Invoice details in header area
+  // Invoice details aligned with business address
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text('Invoice Date: ' + formatDate(invoice.created_at), 150, invoiceHeaderY + 15);
+  doc.text('Invoice Date: ' + formatDate(invoice.created_at), 150, businessAddressY);
   
-  let detailY = invoiceHeaderY + 20;
+  let detailY = businessAddressY + 4;
   if (invoice.due_date) {
     doc.text('Due Date: ' + formatDate(invoice.due_date), 150, detailY);
     detailY += 4;
@@ -391,11 +391,17 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
     doc.text('From Estimate: ' + invoice.estimate_number, 150, detailY);
   }
   
-  // Invoice title
-  yPosition = Math.max(yPosition + 15, invoiceHeaderY + 65); // Ensure we're below header details
+  // Invoice title with status aligned to it
+  yPosition = Math.max(yPosition + 15, invoiceHeaderY + 35);
   doc.setFontSize(24);
   doc.setTextColor(0, 0, 0);
   doc.text('INVOICE', 20, yPosition);
+  
+  // Status aligned with INVOICE title
+  doc.setFontSize(10);
+  const statusColor = invoice.status === 'paid' ? [34, 197, 94] : [239, 68, 68];
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+  doc.text(invoice.status.toUpperCase(), 150, yPosition);
   
   // Client information - Two column layout
   yPosition += 15;
