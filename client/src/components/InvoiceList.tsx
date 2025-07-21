@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit, DollarSign, Plus, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Filter, Eye, Edit, DollarSign, Plus, FileText, AlertCircle, CheckCircle, Send } from 'lucide-react';
 import { useInvoices } from '../hooks/useInvoices';
 import { Invoice } from '../services/api';
 
@@ -241,20 +241,40 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
                   >
                     <Eye size={16} />
                   </button>
-                  <button
-                    onClick={() => onEditInvoice(invoice.id)}
-                    className="w-9 h-9 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
-                    title="Edit"
-                  >
-                    <Edit size={16} />
-                  </button>
+                  {invoice.status === 'draft' && (
+                    <button
+                      onClick={() => onEditInvoice(invoice.id)}
+                      className="w-9 h-9 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      title="Edit"
+                    >
+                      <Edit size={16} />
+                    </button>
+                  )}
+                  {invoice.status === 'draft' && (
+                    <button
+                      onClick={() => handleStatusUpdate(invoice.id, 'sent')}
+                      className="w-9 h-9 bg-purple-500 hover:bg-purple-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      title="Send to Client"
+                    >
+                      <Send size={16} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {outstandingAmount > 0 && (
+                  {invoice.status === 'sent' && (
+                    <button
+                      onClick={() => handleStatusUpdate(invoice.id, 'paid')}
+                      className="w-9 h-9 bg-green-500 hover:bg-green-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      title="Mark as Paid"
+                    >
+                      <CheckCircle size={16} />
+                    </button>
+                  )}
+                  {outstandingAmount > 0 && invoice.status !== 'paid' && (
                     <button
                       onClick={() => onRecordPayment(invoice)}
-                      className="w-9 h-9 bg-green-500 hover:bg-green-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      className="w-9 h-9 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
                       title="Record Payment"
                     >
                       <DollarSign size={16} />
