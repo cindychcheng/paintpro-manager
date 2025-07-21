@@ -166,7 +166,7 @@ export const generateEstimatePDF = (estimate: Estimate, options: PDFOptions = {}
     startY: yPosition,
     body: costData,
     theme: 'plain',
-    bodyStyles: { fontSize: 10 },
+    bodyStyles: { fontSize: 10, cellPadding: 3 },
     columnStyles: {
       0: { cellWidth: 140, halign: 'right', fontStyle: 'bold' },
       1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
@@ -174,29 +174,30 @@ export const generateEstimatePDF = (estimate: Estimate, options: PDFOptions = {}
     margin: { left: 20, right: 20 }
   });
   
-  // Total highlight
-  yPosition = (doc as any).lastAutoTable.finalY;
+  // Total highlight - with proper spacing
+  yPosition = (doc as any).lastAutoTable.finalY + 5; // Add spacing after table
   doc.setFillColor(37, 99, 235);
-  doc.rect(140, yPosition - 10, 50, 8, 'F');
+  doc.rect(140, yPosition, 50, 10, 'F'); // Increased height and adjusted position
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 170, yPosition - 5, { align: 'center' });
+  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, yPosition + 6, { align: 'center' }); // Centered vertically
   
-  // Terms and Notes section
-  yPosition += 20;
-  if (estimate.terms_and_notes && estimate.terms_and_notes.trim() && yPosition < 250) {
+  yPosition += 15; // Add space after highlight box
+  
+  // Terms and Notes section - with better spacing control
+  if (estimate.terms_and_notes && estimate.terms_and_notes.trim() && yPosition < 220) {
     doc.setFontSize(11);
     doc.setTextColor(37, 99, 235); // Blue header
     doc.text('Terms and Notes:', 20, yPosition);
     
-    yPosition += 8;
+    yPosition += 10; // Increased spacing
     doc.setFontSize(9);
     doc.setTextColor(40, 40, 40);
     const splitTerms = doc.splitTextToSize(estimate.terms_and_notes, 170);
-    const maxLines = Math.floor((260 - yPosition) / 4); // Leave space for footer
+    const maxLines = Math.floor((240 - yPosition) / 5); // More conservative spacing
     const termLines = splitTerms.slice(0, Math.max(1, maxLines)); // Always show at least 1 line
     doc.text(termLines, 20, yPosition);
-    yPosition += termLines.length * 4;
+    yPosition += termLines.length * 5; // More line spacing
   }
   
   // Footer
@@ -346,7 +347,7 @@ export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): 
     startY: yPosition,
     body: paymentData,
     theme: 'plain',
-    bodyStyles: { fontSize: 10 },
+    bodyStyles: { fontSize: 10, cellPadding: 3 },
     columnStyles: {
       0: { cellWidth: 140, halign: 'right', fontStyle: 'bold' },
       1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
@@ -354,24 +355,25 @@ export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): 
     margin: { left: 20, right: 20 }
   });
   
-  // Outstanding balance highlight
-  yPosition = (doc as any).lastAutoTable.finalY;
+  // Outstanding balance highlight - with proper spacing
+  yPosition = (doc as any).lastAutoTable.finalY + 5; // Add spacing after table
   const balanceColor = outstandingAmount > 0 ? [239, 68, 68] : [34, 197, 94];
   doc.setFillColor(balanceColor[0], balanceColor[1], balanceColor[2]);
-  doc.rect(140, yPosition - 10, 50, 8, 'F');
+  doc.rect(140, yPosition, 50, 10, 'F'); // Increased height and adjusted position
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   const balanceText = outstandingAmount > 0 ? `DUE: ${formatCurrency(outstandingAmount)}` : 'PAID IN FULL';
-  doc.text(balanceText, 170, yPosition - 5, { align: 'center' });
+  doc.text(balanceText, 165, yPosition + 6, { align: 'center' }); // Centered vertically
   
-  // Payment history (if any)
-  if (invoice.payments && invoice.payments.length > 0 && yPosition < 200) {
-    yPosition += 15;
+  yPosition += 15; // Add space after highlight box
+  
+  // Payment history (if any) - with better spacing
+  if (invoice.payments && invoice.payments.length > 0 && yPosition < 180) {
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     doc.text('Payment History:', 20, yPosition);
     
-    yPosition += 8;
+    yPosition += 10; // Increased spacing
     const paymentTableData = invoice.payments.map(payment => [
       formatDate(payment.payment_date),
       payment.payment_method || 'N/A',
@@ -385,7 +387,7 @@ export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): 
       body: paymentTableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
-      bodyStyles: { fontSize: 8 },
+      bodyStyles: { fontSize: 8, cellPadding: 2 },
       columnStyles: {
         0: { cellWidth: 30 },
         1: { cellWidth: 30 },
@@ -395,24 +397,23 @@ export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): 
       margin: { left: 20, right: 20 }
     });
     
-    yPosition = (doc as any).lastAutoTable.finalY + 10;
+    yPosition = (doc as any).lastAutoTable.finalY + 15; // More space after table
   }
   
-  // Terms and Notes section
-  if (invoice.terms_and_notes && invoice.terms_and_notes.trim() && yPosition < 250) {
-    yPosition += 20;
+  // Terms and Notes section - with better spacing control
+  if (invoice.terms_and_notes && invoice.terms_and_notes.trim() && yPosition < 220) {
     doc.setFontSize(11);
     doc.setTextColor(37, 99, 235); // Blue header
     doc.text('Terms and Notes:', 20, yPosition);
     
-    yPosition += 8;
+    yPosition += 10; // Increased spacing
     doc.setFontSize(9);
     doc.setTextColor(40, 40, 40);
     const splitTerms = doc.splitTextToSize(invoice.terms_and_notes, 170);
-    const maxLines = Math.floor((260 - yPosition) / 4); // Leave space for footer
+    const maxLines = Math.floor((240 - yPosition) / 5); // More conservative spacing
     const termLines = splitTerms.slice(0, Math.max(1, maxLines)); // Always show at least 1 line
     doc.text(termLines, 20, yPosition);
-    yPosition += termLines.length * 4;
+    yPosition += termLines.length * 5; // More line spacing
   }
   
   // Footer
