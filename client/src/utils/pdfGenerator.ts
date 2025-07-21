@@ -11,10 +11,32 @@ interface PDFOptions {
 }
 
 const defaultOptions: PDFOptions = {
-  companyName: '🎨 Painting Business Manager',
+  companyName: 'Painting Business Manager',
   companyAddress: '123 Business Street, City, State 12345',
   companyPhone: '(555) 123-4567',
   companyEmail: 'info@paintingbusiness.com',
+};
+
+// Fetch company settings from API
+const fetchCompanySettings = async (): Promise<PDFOptions> => {
+  try {
+    const response = await fetch('/api/company-settings');
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.data) {
+        return {
+          companyName: result.data.company_name || defaultOptions.companyName,
+          companyAddress: result.data.company_address || defaultOptions.companyAddress,
+          companyPhone: result.data.company_phone || defaultOptions.companyPhone,
+          companyEmail: result.data.company_email || defaultOptions.companyEmail,
+          logo: result.data.logo_url || undefined,
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching company settings for PDF:', error);
+  }
+  return defaultOptions;
 };
 
 const formatCurrency = (amount: number): string => {
@@ -28,8 +50,9 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
-export const generateEstimatePDF = (estimate: Estimate, options: PDFOptions = {}): void => {
-  const opts = { ...defaultOptions, ...options };
+export const generateEstimatePDF = async (estimate: Estimate, options: PDFOptions = {}): Promise<void> => {
+  const companySettings = await fetchCompanySettings();
+  const opts = { ...companySettings, ...options };
   const doc = new jsPDF();
   
   // Set up fonts and colors
@@ -211,8 +234,9 @@ export const generateEstimatePDF = (estimate: Estimate, options: PDFOptions = {}
   doc.save(`${estimate.estimate_number}_${estimate.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
 };
 
-export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): void => {
-  const opts = { ...defaultOptions, ...options };
+export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions = {}): Promise<void> => {
+  const companySettings = await fetchCompanySettings();
+  const opts = { ...companySettings, ...options };
   const doc = new jsPDF();
   
   // Set up fonts and colors

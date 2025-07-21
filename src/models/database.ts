@@ -311,6 +311,18 @@ export class DatabaseManager {
         current_number INTEGER NOT NULL DEFAULT 0,
         prefix TEXT,
         format TEXT
+      )`,
+
+      // Company settings for business information
+      `CREATE TABLE IF NOT EXISTS company_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT NOT NULL,
+        company_address TEXT NOT NULL,
+        company_phone TEXT NOT NULL,
+        company_email TEXT NOT NULL,
+        logo_url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 

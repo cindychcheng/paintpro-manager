@@ -44,9 +44,13 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (estimate) {
-      generateEstimatePDF(estimate);
+      try {
+        await generateEstimatePDF(estimate);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+      }
     }
   };
 

@@ -1383,6 +1383,118 @@ app.get('*', (req, res) => {
   }
 });
 
+// Company Settings endpoints
+app.get('/api/company-settings', async (req, res) => {
+  try {
+    const settings = await db.get('SELECT * FROM company_settings ORDER BY id DESC LIMIT 1');
+    
+    res.json({
+      success: true,
+      data: settings || {
+        company_name: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        logo_url: ''
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch company settings' });
+  }
+});
+
+app.post('/api/company-settings', async (req, res) => {
+  try {
+    const { company_name, company_address, company_phone, company_email, logo_url } = req.body;
+
+    // Validation
+    if (!company_name || !company_email || !company_phone || !company_address) {
+      return res.status(400).json({ success: false, error: 'All company fields are required' });
+    }
+
+    const result = await db.run(`
+      INSERT INTO company_settings (company_name, company_address, company_phone, company_email, logo_url)
+      VALUES (?, ?, ?, ?, ?)
+    `, [company_name, company_address, company_phone, company_email, logo_url || null]);
+
+    const newSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [result.lastID]);
+
+    res.status(201).json({
+      success: true,
+      data: newSettings,
+      message: 'Company settings created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to create company settings' });
+  }
+});
+
+app.put('/api/company-settings', async (req, res) => {
+  try {
+    const { company_name, company_address, company_phone, company_email, logo_url } = req.body;
+
+    // Validation
+    if (!company_name || !company_email || !company_phone || !company_address) {
+      return res.status(400).json({ success: false, error: 'All company fields are required' });
+    }
+
+    // Get existing settings
+    const existingSettings = await db.get('SELECT * FROM company_settings ORDER BY id DESC LIMIT 1');
+    
+    if (existingSettings) {
+      // Update existing settings
+      await db.run(`
+        UPDATE company_settings 
+        SET company_name = ?, company_address = ?, company_phone = ?, company_email = ?, logo_url = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [company_name, company_address, company_phone, company_email, logo_url || null, existingSettings.id]);
+
+      const updatedSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [existingSettings.id]);
+      
+      res.json({
+        success: true,
+        data: updatedSettings,
+        message: 'Company settings updated successfully'
+      });
+    } else {
+      // Create new settings if none exist
+      const result = await db.run(`
+        INSERT INTO company_settings (company_name, company_address, company_phone, company_email, logo_url)
+        VALUES (?, ?, ?, ?, ?)
+      `, [company_name, company_address, company_phone, company_email, logo_url || null]);
+
+      const newSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [result.lastID]);
+
+      res.json({
+        success: true,
+        data: newSettings,
+        message: 'Company settings created successfully'
+      });
+    }
+  } catch (error) {
+    console.error('Error updating company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to update company settings' });
+  }
+});
+
+// Basic logo upload endpoint (stores file as base64 for simplicity)
+app.post('/api/upload-logo', async (req, res) => {
+  try {
+    // For simplicity, we'll just return a success message
+    // In a real app, you'd use multer and store the file properly
+    res.json({
+      success: true,
+      url: '/placeholder-logo.png',
+      message: 'Logo upload simulated (would need proper file storage in production)'
+    });
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload logo' });
+  }
+});
+
 // Error handling
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);

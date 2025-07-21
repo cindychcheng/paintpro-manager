@@ -47,9 +47,13 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (invoice) {
-      generateInvoicePDF(invoice);
+      try {
+        await generateInvoicePDF(invoice);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+      }
     }
   };
 

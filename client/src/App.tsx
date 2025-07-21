@@ -7,12 +7,13 @@ import InvoiceDetail from './components/InvoiceDetail';
 import PaymentForm from './components/PaymentForm';
 import ClientList from './components/ClientList';
 import ClientForm from './components/ClientForm';
-import { Home, Menu, X } from 'lucide-react';
+import CompanySettings from './components/CompanySettings';
+import { Home, Menu, X, Settings } from 'lucide-react';
 import { useEstimates } from './hooks/useEstimates';
 import { useInvoices } from './hooks/useInvoices';
 import { CreateEstimateRequest, Invoice, RecordPaymentRequest } from './services/api';
 
-type View = 'dashboard' | 'estimates' | 'estimate-form' | 'estimate-detail' | 'invoices' | 'invoice-detail' | 'clients' | 'client-form' | 'client-detail';
+type View = 'dashboard' | 'estimates' | 'estimate-form' | 'estimate-detail' | 'invoices' | 'invoice-detail' | 'clients' | 'client-form' | 'client-detail' | 'company-settings';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -211,6 +212,12 @@ function App() {
               Back to Clients
             </button>
           </div>
+        );
+      case 'company-settings':
+        return (
+          <CompanySettings
+            onBack={() => setCurrentView('dashboard')}
+          />
         );
       default:
         return (
@@ -453,6 +460,17 @@ function App() {
                 </svg>
                 Clients
               </button>
+              <button
+                onClick={() => setCurrentView('company-settings')}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
+                  currentView === 'company-settings'
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25' 
+                    : 'text-slate-300 hover:text-white hover:bg-white/10 backdrop-blur-sm'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
             </nav>
 
             {/* Mobile Menu Button */}
@@ -519,6 +537,17 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
                   </svg>
                   Clients
+                </button>
+                <button
+                  onClick={() => { setCurrentView('company-settings'); setIsMobileMenuOpen(false); }}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-3 ${
+                    currentView === 'company-settings'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg' 
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Settings className="w-5 h-5" />
+                  Settings
                 </button>
                 
                 {/* Quick Actions in Mobile Menu */}
