@@ -175,14 +175,14 @@ export const generateEstimatePDF = (estimate: Estimate, options: PDFOptions = {}
   });
   
   // Total highlight - with proper spacing
-  yPosition = (doc as any).lastAutoTable.finalY + 5; // Add spacing after table
+  yPosition = (doc as any).lastAutoTable.finalY + 10; // More spacing after table
   doc.setFillColor(37, 99, 235);
-  doc.rect(140, yPosition, 50, 10, 'F'); // Increased height and adjusted position
+  doc.rect(140, yPosition, 50, 12, 'F'); // Increased height and proper position
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, yPosition + 6, { align: 'center' }); // Centered vertically
+  doc.text('TOTAL: ' + formatCurrency(estimate.total_amount), 165, yPosition + 7, { align: 'center' }); // Better vertical centering
   
-  yPosition += 15; // Add space after highlight box
+  yPosition += 20; // More space after highlight box
   
   // Terms and Notes section - with better spacing control
   if (estimate.terms_and_notes && estimate.terms_and_notes.trim() && yPosition < 220) {
@@ -355,17 +355,17 @@ export const generateInvoicePDF = (invoice: Invoice, options: PDFOptions = {}): 
     margin: { left: 20, right: 20 }
   });
   
-  // Outstanding balance highlight - with proper spacing
-  yPosition = (doc as any).lastAutoTable.finalY + 5; // Add spacing after table
+  // Outstanding balance highlight - positioned to avoid overlap
+  yPosition = (doc as any).lastAutoTable.finalY + 10; // More spacing after table
   const balanceColor = outstandingAmount > 0 ? [239, 68, 68] : [34, 197, 94];
   doc.setFillColor(balanceColor[0], balanceColor[1], balanceColor[2]);
-  doc.rect(140, yPosition, 50, 10, 'F'); // Increased height and adjusted position
+  doc.rect(140, yPosition, 50, 12, 'F'); // Increased height further and proper position
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   const balanceText = outstandingAmount > 0 ? `DUE: ${formatCurrency(outstandingAmount)}` : 'PAID IN FULL';
-  doc.text(balanceText, 165, yPosition + 6, { align: 'center' }); // Centered vertically
+  doc.text(balanceText, 165, yPosition + 7, { align: 'center' }); // Better vertical centering
   
-  yPosition += 15; // Add space after highlight box
+  yPosition += 20; // More space after highlight box
   
   // Payment history (if any) - with better spacing
   if (invoice.payments && invoice.payments.length > 0 && yPosition < 180) {
