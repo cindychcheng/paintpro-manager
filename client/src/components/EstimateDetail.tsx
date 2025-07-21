@@ -54,9 +54,9 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
     }
   };
 
-  const handleSaveEdit = (updatedEstimate: Estimate) => {
+  const handleSaveEdit = async (updatedEstimate: Estimate) => {
     setIsEditing(false);
-    refetch(); // Refresh the estimate data
+    await refetch(); // Refresh the estimate data
   };
 
   const handleCreateRevision = async () => {
@@ -383,17 +383,17 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
         </div>
 
         {/* Terms and Notes */}
-        {estimate.terms_and_notes && (
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <FileText className="text-blue-600" size={20} />
-              Terms and Notes
-            </h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-gray-900 whitespace-pre-wrap">{estimate.terms_and_notes}</div>
+        <div className="px-6 py-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <FileText className="text-blue-600" size={20} />
+            Terms and Notes
+          </h3>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-gray-900 whitespace-pre-wrap">
+              {estimate.terms_and_notes || 'No terms and notes specified.'}
             </div>
           </div>
-        )}
+        </div>
 
         {/* Project Areas */}
         {estimate.project_areas && estimate.project_areas.length > 0 && (
