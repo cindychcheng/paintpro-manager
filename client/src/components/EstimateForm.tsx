@@ -156,33 +156,35 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
   const { totalLabor, totalMaterial, markup, total } = calculateTotals();
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
+      {/* Header - Mobile Optimized */}
+      <div className="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={onCancel}
-            className="text-gray-600 hover:text-gray-900 p-2"
+            className="text-gray-600 hover:text-gray-900 p-2 -ml-2 sm:ml-0"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Create New Estimate</h2>
-            <p className="text-gray-600">Fill out the details for your painting project estimate</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Estimate</h2>
+            <p className="text-sm sm:text-base text-gray-600 hidden sm:block">Fill out the details for your painting project estimate</p>
           </div>
         </div>
-        <div className="flex gap-3">
+        
+        {/* Mobile: Full-width buttons, Desktop: Inline */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="w-full sm:w-auto px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-center"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || clientsLoading}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 sm:py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={20} />
             {isSubmitting ? 'Saving...' : 'Save Estimate'}
@@ -202,41 +204,46 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
           </div>
         )}
 
-        {/* Basic Information */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Client *
-              </label>
-              <select
-                value={formData.client_id}
-                onChange={(e) => setFormData(prev => ({ ...prev, client_id: parseInt(e.target.value) }))}
-                disabled={clientsLoading}
-                className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 ${
-                  errors.client_id ? 'border-red-300' : 'border-gray-300'
-                }`}
-              >
-                <option value={0}>Select a client...</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </select>
-              {errors.client_id && <p className="text-red-500 text-sm mt-1">{errors.client_id}</p>}
+        {/* Basic Information - Mobile Optimized */}
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Basic Information</h3>
+          <div className="space-y-4 sm:space-y-6">
+            {/* Single column on mobile, two columns on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Client *
+                </label>
+                <select
+                  value={formData.client_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, client_id: parseInt(e.target.value) }))}
+                  disabled={clientsLoading}
+                  className={`w-full border rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 ${
+                    errors.client_id ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  <option value={0}>Select a client...</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+                {errors.client_id && <p className="text-red-500 text-sm mt-1">{errors.client_id}</p>}
+              </div>
+              
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Valid Until
+                </label>
+                <input
+                  type="date"
+                  value={formData.valid_until}
+                  onChange={(e) => setFormData(prev => ({ ...prev, valid_until: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Valid Until
-              </label>
-              <input
-                type="date"
-                value={formData.valid_until}
-                onChange={(e) => setFormData(prev => ({ ...prev, valid_until: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Project Title *
               </label>
@@ -244,26 +251,28 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full border rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   errors.title ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="e.g., Interior Painting - Living Room & Kitchen"
               />
               {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
             </div>
-            <div className="md:col-span-2">
+            
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={4}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Detailed description of the project..."
               />
             </div>
-            <div>
+            
+            <div className="sm:max-w-xs">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Markup Percentage (%)
               </label>
@@ -271,30 +280,31 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                 type="number"
                 value={formData.markup_percentage}
                 onChange={(e) => setFormData(prev => ({ ...prev, markup_percentage: parseFloat(e.target.value) || 0 }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 min="0"
                 max="100"
                 step="0.1"
+                inputMode="decimal"
               />
             </div>
           </div>
         </div>
 
-        {/* Project Areas */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Project Areas - Mobile Optimized */}
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Project Areas</h3>
             <button
               type="button"
               onClick={addProjectArea}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto bg-blue-500 text-white px-4 py-3 sm:py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
             >
               <Plus size={16} />
               Add Area
             </button>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {formData.project_areas.map((area, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -303,49 +313,53 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                     <button
                       type="button"
                       onClick={() => removeProjectArea(index)}
-                      className="text-red-600 hover:text-red-800 p-1"
+                      className="text-red-600 hover:text-red-800 p-2 -mr-2"
                     >
                       <Trash2 size={16} />
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                {/* Mobile: Single column, Tablet+: Multiple columns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Area Name *
                     </label>
                     <input
                       type="text"
                       value={area.area_name}
                       onChange={(e) => updateProjectArea(index, 'area_name', e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`w-full border rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors[`area_${index}_name`] ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Living Room"
                     />
+                    {errors[`area_${index}_name`] && <p className="text-red-500 text-sm mt-1">{errors[`area_${index}_name`]}</p>}
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Type
                     </label>
                     <select
                       value={area.area_type}
                       onChange={(e) => updateProjectArea(index, 'area_type', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="indoor">Indoor</option>
                       <option value="outdoor">Outdoor</option>
                     </select>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Surface Type
                     </label>
                     <select
                       value={area.surface_type}
                       onChange={(e) => updateProjectArea(index, 'surface_type', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="drywall">Drywall</option>
                       <option value="wood">Wood</option>
@@ -354,20 +368,24 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                       <option value="metal">Metal</option>
                     </select>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Square Footage *
                     </label>
                     <input
                       type="number"
                       value={area.square_footage}
                       onChange={(e) => updateProjectArea(index, 'square_footage', parseFloat(e.target.value) || 0)}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`w-full border rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors[`area_${index}_sqft`] ? 'border-red-300' : 'border-gray-300'
                       }`}
                       min="0"
                       step="0.1"
+                      inputMode="decimal"
+                      placeholder="0"
                     />
+                    {errors[`area_${index}_sqft`] && <p className="text-red-500 text-sm mt-1">{errors[`area_${index}_sqft`]}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
