@@ -125,15 +125,15 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   // Estimate details in header area
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Estimate Date: ${formatDate(estimate.created_at)}`, 150, estimateHeaderY + 15);
+  doc.text('Estimate Date: ' + formatDate(estimate.created_at), 150, estimateHeaderY + 15);
   
   let detailY = estimateHeaderY + 22;
   if (estimate.valid_until) {
-    doc.text(`Valid Until: ${formatDate(estimate.valid_until)}`, 150, detailY);
+    doc.text('Valid Until: ' + formatDate(estimate.valid_until), 150, detailY);
     detailY += 7;
   }
   
-  doc.text(`Revision: #${estimate.revision_number}`, 150, detailY);
+  doc.text('Revision: #' + estimate.revision_number, 150, detailY);
   
   // Estimate title  
   yPosition = Math.max(yPosition + 15, estimateHeaderY + 55); // Ensure we're below header details
@@ -376,19 +376,19 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   // Invoice details in header area
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Invoice Date: ${formatDate(invoice.created_at)}`, 150, invoiceHeaderY + 15);
+  doc.text('Invoice Date: ' + formatDate(invoice.created_at), 150, invoiceHeaderY + 15);
   
   let detailY = invoiceHeaderY + 22;
   if (invoice.due_date) {
-    doc.text(`Due Date: ${formatDate(invoice.due_date)}`, 150, detailY);
+    doc.text('Due Date: ' + formatDate(invoice.due_date), 150, detailY);
     detailY += 7;
   }
   
-  doc.text(`Payment Terms: ${invoice.payment_terms}`, 150, detailY);
+  doc.text('Payment Terms: ' + invoice.payment_terms, 150, detailY);
   detailY += 7;
   
   if (invoice.estimate_number) {
-    doc.text(`From Estimate: ${invoice.estimate_number}`, 150, detailY);
+    doc.text('From Estimate: ' + invoice.estimate_number, 150, detailY);
   }
   
   // Invoice title
