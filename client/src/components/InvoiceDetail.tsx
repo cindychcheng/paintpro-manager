@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download, Send, CheckCircle, RefreshCw, Edit } from 'lucide-react';
 import { useInvoice } from '../hooks/useInvoices';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import InvoiceEdit from './InvoiceEdit';
@@ -58,6 +58,28 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
     refetch(); // Refresh the invoice data
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        await refetch(); // Refresh the invoice data
+      } else {
+        console.error('Failed to update status');
+        alert('Failed to update invoice status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Error updating invoice status');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -107,13 +129,67 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
           <ArrowLeft size={20} />
           Back to Invoices
         </button>
-        <button
-          onClick={handleDownloadPDF}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Download size={18} />
-          Download PDF
-        </button>
+        
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Status Action Buttons */}
+          {invoice.status === 'draft' && (
+            <button
+              onClick={() => handleStatusChange('sent')}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Send size={18} />
+              Send to Client
+            </button>
+          )}
+          
+          {invoice.status === 'sent' && (
+            <>
+              <button
+                onClick={() => handleStatusChange('paid')}
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <CheckCircle size={18} />
+                Mark as Paid
+              </button>
+              <button
+                onClick={() => handleStatusChange('draft')}
+                className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <RefreshCw size={18} />
+                Back to Draft
+              </button>
+            </>
+          )}
+          
+          {invoice.status === 'paid' && (
+            <button
+              onClick={() => handleStatusChange('sent')}
+              className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              <RefreshCw size={18} />
+              Mark as Unpaid
+            </button>
+          )}
+
+          {/* Edit Button (only for draft invoices) */}
+          {invoice.status === 'draft' && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Edit size={18} />
+              Edit
+            </button>
+          )}
+
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Download size={18} />
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
