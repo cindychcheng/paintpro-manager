@@ -475,6 +475,31 @@ app.post('/api/test-revision/:id', async (req, res) => {
   }
 });
 
+// Debug endpoint to check revision logs
+app.get('/api/debug-revisions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const revisions = await db.all('SELECT * FROM estimate_revisions WHERE estimate_id = ? ORDER BY created_at DESC', [id]);
+    const estimate = await db.get('SELECT revision_number FROM estimates WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      data: {
+        estimate_revision_number: estimate?.revision_number,
+        revision_logs_count: revisions.length,
+        revision_logs: revisions
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Debug failed',
+      details: (error as Error).message
+    });
+  }
+});
+
 // Create estimate revision - WORKING VERSION
 app.post("/api/estimates/:id/revisions", async (req, res) => {
   try {
