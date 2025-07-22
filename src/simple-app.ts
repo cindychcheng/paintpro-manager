@@ -92,10 +92,61 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
 });
 
-// Get all estimates
+// Get all estimates with filtering and pagination
 app.get('/api/estimates', async (req, res) => {
   try {
-    const estimates = await db.all(`
+    const {
+      page = 1,
+      limit = 20,
+      client_id,
+      status,
+      search = '',
+      date_from,
+      date_to
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (client_id) {
+      whereClause += ' AND e.client_id = ?';
+      params.push(client_id);
+    }
+
+    if (status) {
+      whereClause += ' AND e.status = ?';
+      params.push(status);
+    }
+
+    if (search) {
+      whereClause += ' AND (e.title LIKE ? OR e.estimate_number LIKE ? OR c.name LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (date_from) {
+      whereClause += ' AND DATE(e.created_at) >= ?';
+      params.push(date_from);
+    }
+
+    if (date_to) {
+      whereClause += ' AND DATE(e.created_at) <= ?';
+      params.push(date_to);
+    }
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM estimates e
+      LEFT JOIN clients c ON e.client_id = c.id
+      ${whereClause}
+    `;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
       SELECT 
         e.*,
         c.name as client_name,
@@ -103,17 +154,21 @@ app.get('/api/estimates', async (req, res) => {
         c.phone as client_phone
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
+      ${whereClause}
       ORDER BY e.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `;
+    
+    const estimates = await db.all(dataQuery, [...params, parseInt(limit), offset]);
     
     res.json({
       success: true,
       data: {
         data: estimates,
-        total: estimates.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     });
   } catch (error) {
@@ -122,19 +177,60 @@ app.get('/api/estimates', async (req, res) => {
   }
 });
 
-// Get all clients
+// Get all clients with filtering and pagination
 app.get('/api/clients', async (req, res) => {
   try {
-    const clients = await db.all('SELECT * FROM clients ORDER BY name ASC');
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      city = '',
+      state = ''
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
     
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (search) {
+      whereClause += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (city) {
+      whereClause += ' AND city LIKE ?';
+      params.push(`%${city}%`);
+    }
+
+    if (state) {
+      whereClause += ' AND state LIKE ?';
+      params.push(`%${state}%`);
+    }
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM clients ${whereClause}`;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
+      SELECT * FROM clients 
+      ${whereClause}
+      ORDER BY name ASC 
+      LIMIT ? OFFSET ?
+    `;
+    
+    const clients = await db.all(dataQuery, [...params, parseInt(limit), offset]);
+
     res.json({
       success: true,
       data: {
         data: clients,
-        total: clients.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     });
   } catch (error) {
@@ -899,10 +995,54 @@ app.patch('/api/estimates/:id/status', async (req, res) => {
   }
 });
 
-// Get all invoices
+// Get all invoices with filtering and pagination
 app.get('/api/invoices', async (req, res) => {
   try {
-    const invoices = await db.all(`
+    const {
+      page = 1,
+      limit = 20,
+      client_id,
+      status,
+      search = '',
+      overdue
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (client_id) {
+      whereClause += ' AND i.client_id = ?';
+      params.push(client_id);
+    }
+
+    if (status) {
+      whereClause += ' AND i.status = ?';
+      params.push(status);
+    }
+
+    if (search) {
+      whereClause += ' AND (i.title LIKE ? OR i.invoice_number LIKE ? OR c.name LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (overdue === 'true') {
+      whereClause += ' AND i.due_date < DATE("now") AND i.status != "paid"';
+    }
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM invoices i
+      LEFT JOIN clients c ON i.client_id = c.id
+      ${whereClause}
+    `;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
       SELECT 
         i.*,
         c.name as client_name,
@@ -913,17 +1053,21 @@ app.get('/api/invoices', async (req, res) => {
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
       LEFT JOIN estimates e ON i.estimate_id = e.id
+      ${whereClause}
       ORDER BY i.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `;
+    
+    const invoices = await db.all(dataQuery, [...params, parseInt(limit), offset]);
     
     res.json({
       success: true,
       data: {
         data: invoices,
-        total: invoices.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     });
   } catch (error) {
