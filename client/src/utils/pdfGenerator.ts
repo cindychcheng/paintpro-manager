@@ -237,12 +237,12 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 25 }
+        0: { cellWidth: 30 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 22 }
       },
       margin: { left: 20, right: 20 }
     });
@@ -496,12 +496,12 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 25 }
+        0: { cellWidth: 30 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 22 }
       },
       margin: { left: 20, right: 20 }
     });
