@@ -152,14 +152,28 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
       <div className="flex flex-col sm:flex-row gap-6">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search estimates..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            autoComplete="off"
-            className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
-          />
+          <form onSubmit={(e) => e.preventDefault()}>
+            <input
+              type="text"
+              placeholder="Search estimates..."
+              value={searchTerm}
+              onChange={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Search input onChange:', e.target.value);
+                setSearchTerm(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Enter key prevented');
+                }
+              }}
+              autoComplete="off"
+              className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
+            />
+          </form>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
