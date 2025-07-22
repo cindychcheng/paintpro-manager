@@ -99,8 +99,14 @@ const ClientList: React.FC<ClientListProps> = ({ onCreateNew, onViewClient, onEd
           placeholder="Search clients by name, email, or phone..."
           value={searchTerm}
           onChange={(e) => {
+            e.preventDefault();
             setSearchTerm(e.target.value);
             setCurrentPage(1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+            }
           }}
           className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
         />
