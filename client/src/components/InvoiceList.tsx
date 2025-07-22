@@ -12,6 +12,7 @@ interface InvoiceListProps {
 
 const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice, onRecordPayment, onConvertEstimate }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [overdueFilter, setOverdueFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,18 +28,24 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
   } = useInvoices({
     page: currentPage,
     limit: 20,
-    search: searchTerm,
+    search: debouncedSearchTerm,
     status: statusFilter === 'all' ? undefined : statusFilter,
     overdue: overdueFilter
   });
 
-  // Debounce search
+  // Debounce search term
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
       setCurrentPage(1); // Reset to first page when searching
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, overdueFilter]);
+  }, [searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, overdueFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

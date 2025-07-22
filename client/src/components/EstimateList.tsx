@@ -12,6 +12,7 @@ interface EstimateListProps {
 
 const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate, onEditEstimate }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -27,19 +28,25 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   } = useEstimates({
     page: currentPage,
     limit: 20,
-    search: searchTerm,
+    search: debouncedSearchTerm,
     status: statusFilter === 'all' ? undefined : statusFilter
   });
 
   const { convertEstimateToInvoice } = useInvoices();
 
-  // Debounce search
+  // Debounce search term
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
       setCurrentPage(1); // Reset to first page when searching
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm]);
+
+  // Reset page when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

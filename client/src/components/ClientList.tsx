@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, MapPin, Phone, Mail } from 'lucide-react';
 import { useClients } from '../hooks/useClients';
 import { Client } from '../services/api';
@@ -11,6 +11,7 @@ interface ClientListProps {
 
 const ClientList: React.FC<ClientListProps> = ({ onCreateNew, onViewClient, onEditClient }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   const {
@@ -24,8 +25,17 @@ const ClientList: React.FC<ClientListProps> = ({ onCreateNew, onViewClient, onEd
   } = useClients({
     page: currentPage,
     limit: 20,
-    search: searchTerm
+    search: debouncedSearchTerm
   });
+
+  // Debounce search term
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page when searching
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   const handleDelete = async (id: number, clientName: string) => {
     if (window.confirm(`Are you sure you want to delete ${clientName}? This action cannot be undone.`)) {
