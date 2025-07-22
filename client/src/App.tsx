@@ -117,6 +117,7 @@ function App() {
       case 'estimates':
         return (
           <EstimateList 
+            key="estimates-list"
             onCreateNew={handleCreateEstimate}
             onViewEstimate={handleViewEstimate}
             onEditEstimate={handleEditEstimate}
