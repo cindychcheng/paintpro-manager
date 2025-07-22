@@ -9,7 +9,7 @@ startCommand = "npm start"
 NODE_ENV = "production"
 RAILWAY_VOLUME_MOUNT_PATH = "/data"
 
-# Volume configuration for persistent database storage
+# Volume configuration for persistent database storage  
 [[deploy.volumes]]
 mountPath = "/data"
 name = "paintpro-database"
