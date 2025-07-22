@@ -103,9 +103,9 @@ app.get('/api/estimates', async (req, res) => {
       search = '',
       date_from,
       date_to
-    } = req.query;
+    } = req.query as any;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
     let whereClause = 'WHERE 1=1';
     const params = [];
@@ -159,16 +159,16 @@ app.get('/api/estimates', async (req, res) => {
       LIMIT ? OFFSET ?
     `;
     
-    const estimates = await db.all(dataQuery, [...params, parseInt(limit), offset]);
+    const estimates = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
     
     res.json({
       success: true,
       data: {
         data: estimates,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -186,9 +186,9 @@ app.get('/api/clients', async (req, res) => {
       search = '',
       city = '',
       state = ''
-    } = req.query;
+    } = req.query as any;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
     let whereClause = 'WHERE 1=1';
     const params = [];
@@ -221,16 +221,16 @@ app.get('/api/clients', async (req, res) => {
       LIMIT ? OFFSET ?
     `;
     
-    const clients = await db.all(dataQuery, [...params, parseInt(limit), offset]);
+    const clients = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
 
     res.json({
       success: true,
       data: {
         data: clients,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -1005,9 +1005,9 @@ app.get('/api/invoices', async (req, res) => {
       status,
       search = '',
       overdue
-    } = req.query;
+    } = req.query as any;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
     let whereClause = 'WHERE 1=1';
     const params = [];
@@ -1058,16 +1058,16 @@ app.get('/api/invoices', async (req, res) => {
       LIMIT ? OFFSET ?
     `;
     
-    const invoices = await db.all(dataQuery, [...params, parseInt(limit), offset]);
+    const invoices = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
     
     res.json({
       success: true,
       data: {
         data: invoices,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit))
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
