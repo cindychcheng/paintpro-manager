@@ -3,8 +3,8 @@
   "version": "1.0.1",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/minimal-app.js",
-    "dev": "ts-node src/minimal-app.ts",
+    "start": "node dist/simple-app.js",
+    "dev": "ts-node src/simple-app.ts",
     "build": "npm run client:install && npm run client:build-only && npx tsc",
     "client:install": "cd client && npm install",
     "client:build-only": "cd client && npm run build",

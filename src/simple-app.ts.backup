@@ -2,8 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { db } from './models/database';
-import { NumberService } from './services/numberService';
+import multer from 'multer';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -13,9 +12,32 @@ if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'production';
 }
 
+// Simple in-memory database for Railway startup reliability
+let estimates: any[] = [];
+let clients: any[] = [];
+let invoices: any[] = [];
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      const error = new Error('Only image files are allowed') as any;
+      cb(error, false);
+    }
+  }
+});
 
 // Serve static files from the React app build
 let clientBuildPath = '';
@@ -73,10 +95,61 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
 });
 
-// Get all estimates
+// Get all estimates with filtering and pagination
 app.get('/api/estimates', async (req, res) => {
   try {
-    const estimates = await db.all(`
+    const {
+      page = 1,
+      limit = 20,
+      client_id,
+      status,
+      search = '',
+      date_from,
+      date_to
+    } = req.query as any;
+
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (client_id) {
+      whereClause += ' AND e.client_id = ?';
+      params.push(client_id);
+    }
+
+    if (status) {
+      whereClause += ' AND e.status = ?';
+      params.push(status);
+    }
+
+    if (search) {
+      whereClause += ' AND (e.title LIKE ? OR e.estimate_number LIKE ? OR c.name LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (date_from) {
+      whereClause += ' AND DATE(e.created_at) >= ?';
+      params.push(date_from);
+    }
+
+    if (date_to) {
+      whereClause += ' AND DATE(e.created_at) <= ?';
+      params.push(date_to);
+    }
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM estimates e
+      LEFT JOIN clients c ON e.client_id = c.id
+      ${whereClause}
+    `;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
       SELECT 
         e.*,
         c.name as client_name,
@@ -84,17 +157,21 @@ app.get('/api/estimates', async (req, res) => {
         c.phone as client_phone
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
+      ${whereClause}
       ORDER BY e.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `;
+    
+    const estimates = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
     
     res.json({
       success: true,
       data: {
         data: estimates,
-        total: estimates.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -103,19 +180,60 @@ app.get('/api/estimates', async (req, res) => {
   }
 });
 
-// Get all clients
+// Get all clients with filtering and pagination
 app.get('/api/clients', async (req, res) => {
   try {
-    const clients = await db.all('SELECT * FROM clients ORDER BY name ASC');
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      city = '',
+      state = ''
+    } = req.query as any;
+
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (search) {
+      whereClause += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (city) {
+      whereClause += ' AND city LIKE ?';
+      params.push(`%${city}%`);
+    }
+
+    if (state) {
+      whereClause += ' AND state LIKE ?';
+      params.push(`%${state}%`);
+    }
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM clients ${whereClause}`;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
+      SELECT * FROM clients 
+      ${whereClause}
+      ORDER BY name ASC 
+      LIMIT ? OFFSET ?
+    `;
+    
+    const clients = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
+
     res.json({
       success: true,
       data: {
         data: clients,
-        total: clients.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -378,7 +496,11 @@ app.get('/api/estimates/:id', async (req, res) => {
         c.address as client_address,
         c.city as client_city,
         c.state as client_state,
-        c.zip_code as client_zip_code
+        c.zip_code as client_zip_code,
+        c.job_address,
+        c.job_city,
+        c.job_state,
+        c.job_zip_code
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
       WHERE e.id = ?
@@ -413,11 +535,50 @@ app.get('/api/estimates/:id/revisions', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const revisions = await db.getEstimateRevisionHistory(parseInt(id));
+    // Get revision logs with proper formatting for the frontend
+    const revisionLogs = await db.all(`
+      SELECT 
+        er.*,
+        e.estimate_number,
+        e.title
+      FROM estimate_revisions er
+      JOIN estimates e ON er.estimate_id = e.id
+      WHERE er.estimate_id = ?
+      ORDER BY er.revision_number ASC
+    `, [id]);
+    
+    // Format the data for the frontend version history component
+    const formattedRevisions = revisionLogs.map(log => {
+      let changeDetails: any = {};
+      try {
+        changeDetails = JSON.parse(log.change_details || '{}');
+      } catch (e) {
+        changeDetails = {};
+      }
+      
+      return {
+        id: log.id,
+        estimate_number: log.estimate_number,
+        title: log.title,
+        revision_number: log.revision_number,
+        total_amount: log.new_total_amount,
+        labor_cost: changeDetails.labor_cost || 0,
+        material_cost: changeDetails.material_cost || 0,
+        markup_percentage: log.new_markup_percentage,
+        status: 'revised',
+        created_at: log.created_at,
+        revision_type: log.revision_type,
+        change_summary: log.change_summary,
+        approval_status: log.approval_status,
+        approved_by: log.approved_by,
+        approved_at: log.approved_at,
+        is_current_version: false
+      };
+    });
     
     res.json({
       success: true,
-      data: revisions
+      data: formattedRevisions
     });
   } catch (error) {
     console.error('Error getting estimate revisions:', error);
@@ -475,152 +636,192 @@ app.post('/api/test-revision/:id', async (req, res) => {
   }
 });
 
-// Create estimate revision with enhanced tracking
-app.post('/api/estimates/:id/revisions', async (req, res) => {
+// Debug endpoint to check revision logs
+app.get('/api/debug-revisions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { changes = {} } = req.body;
     
-    console.log('SIMPLE: Updating estimate', id, 'with changes:', changes);
-
-    // Get the current estimate with project areas
-    const currentEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
-    if (!currentEstimate) {
-      return res.status(404).json({
-        success: false,
-        error: 'Estimate not found'
-      });
-    }
-
-    // Get current project areas
-    const currentProjectAreas = await db.all('SELECT * FROM project_areas WHERE estimate_id = ? ORDER BY created_at ASC', [id]);
-    console.log('Current project areas:', currentProjectAreas);
-
-    // Start transaction for atomic update
-    await db.run('BEGIN TRANSACTION');
-
-    try {
-      // Increment revision number
-      const newRevisionNumber = currentEstimate.revision_number + 1;
-      console.log('Creating revision #', newRevisionNumber);
-
-      // Skip revision log for now - just focus on updating the estimate
-      console.log('Skipping revision log creation to avoid constraint issues');
-      const revisionId = Date.now(); // Fake revision ID for response
-
-      // Update project areas if provided
-      if (changes.project_areas && Array.isArray(changes.project_areas)) {
-        console.log('Updating project areas:', changes.project_areas.length, 'areas');
-        
-        for (let i = 0; i < changes.project_areas.length; i++) {
-          const newArea = changes.project_areas[i];
-          const currentArea = currentProjectAreas[i];
-          
-          if (currentArea && newArea) {
-            console.log(`Updating area ${i}:`, newArea);
-            
-            await db.run(`
-              UPDATE project_areas 
-              SET labor_hours = ?, labor_rate = ?, material_cost = ?, updated_at = CURRENT_TIMESTAMP 
-              WHERE id = ?
-            `, [
-              newArea.labor_hours || currentArea.labor_hours,
-              newArea.labor_rate || currentArea.labor_rate, 
-              newArea.material_cost || currentArea.material_cost,
-              currentArea.id
-            ]);
-          }
-        }
+    const revisions = await db.all('SELECT * FROM estimate_revisions WHERE estimate_id = ? ORDER BY created_at DESC', [id]);
+    const estimate = await db.get('SELECT revision_number FROM estimates WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      data: {
+        estimate_revision_number: estimate?.revision_number,
+        revision_logs_count: revisions.length,
+        revision_logs: revisions
       }
-
-      // Update the actual estimate with new values
-      const updatedFields = ['revision_number = ?'];
-      const updateValues = [newRevisionNumber];
-
-      // Handle labor cost changes
-      if (changes.labor_cost !== undefined) {
-        updatedFields.push('labor_cost = ?');
-        updateValues.push(changes.labor_cost);
-      }
-
-      // Handle material cost changes
-      if (changes.material_cost !== undefined) {
-        updatedFields.push('material_cost = ?');
-        updateValues.push(changes.material_cost);
-      }
-
-      if (changes.markup_percentage !== undefined) {
-        updatedFields.push('markup_percentage = ?');
-        updateValues.push(changes.markup_percentage);
-      }
-
-      // Always update total amount if any cost components changed
-      if (changes.total_amount !== undefined) {
-        updatedFields.push('total_amount = ?');
-        updateValues.push(changes.total_amount);
-      }
-
-      if (changes.terms_and_notes !== undefined) {
-        updatedFields.push('terms_and_notes = ?');
-        updateValues.push(changes.terms_and_notes);
-
-        await db.logEstimateChange(
-          parseInt(id),
-          revisionId,
-          'terms_and_notes',
-          currentEstimate.terms_and_notes,
-          changes.terms_and_notes,
-          'updated',
-          created_by
-        );
-      }
-
-      if (changes.change_reason !== undefined) {
-        updatedFields.push('change_reason = ?');
-        updateValues.push(changes.change_reason);
-      }
-
-      // Update the estimate if there are fields to update
-      if (updatedFields.length > 0) {
-        updateValues.push(id); // For WHERE clause
-        await db.run(
-          `UPDATE estimates SET ${updatedFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-          updateValues
-        );
-      }
-
-      // Commit the transaction
-      await db.run('COMMIT');
-
-      // Get the updated estimate
-      const updatedEstimate = await db.get('SELECT * FROM estimates WHERE id = ?', [id]);
-
-      res.status(201).json({
-        success: true,
-        data: { 
-          revision_id: revisionId,
-          updated_estimate: updatedEstimate
-        },
-        message: 'Estimate revision created and applied successfully'
-      });
-
-    } catch (error) {
-      // Rollback on error
-      console.error('Error in revision transaction:', error);
-      await db.run('ROLLBACK');
-      throw error;
-    }
-
+    });
   } catch (error) {
-    console.error('Error creating estimate revision:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to create estimate revision',
-      details: (error as Error).message 
+    res.status(500).json({
+      success: false,
+      error: 'Debug failed',
+      details: (error as Error).message
     });
   }
 });
 
+// Create estimate revision - WORKING VERSION
+app.post("/api/estimates/:id/revisions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { changes = {} } = req.body;
+    
+    console.log("REVISION: Updating estimate", id, "with changes:", changes);
+    console.log("REVISION: Full request body:", req.body);
+    
+    // Check estimate status first
+    const currentEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
+    if (!currentEstimate) {
+      return res.status(404).json({ success: false, error: "Estimate not found" });
+    }
+    
+    if (!['sent', 'approved'].includes(currentEstimate.status)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Cannot revise estimate with status '${currentEstimate.status}'. Estimate must be 'sent' or 'approved'.` 
+      });
+    }
+    
+    // Update estimate fields
+    const updates = [];
+    const values = [];
+    
+    if (changes.markup_percentage !== undefined) {
+      updates.push("markup_percentage = ?");
+      values.push(changes.markup_percentage);
+    }
+    
+    if (changes.total_amount !== undefined) {
+      updates.push("total_amount = ?");
+      values.push(changes.total_amount);
+    }
+    
+    if (changes.labor_cost !== undefined) {
+      updates.push("labor_cost = ?");
+      values.push(changes.labor_cost);
+    }
+    
+    if (changes.material_cost !== undefined) {
+      updates.push("material_cost = ?");
+      values.push(changes.material_cost);
+    }
+    
+    // Always increment revision number
+    updates.push("revision_number = revision_number + 1");
+    
+    if (updates.length > 0) {
+      values.push(id);
+      await db.run(`UPDATE estimates SET ${updates.join(", ")} WHERE id = ?`, values);
+    }
+    
+    // Update project areas if provided
+    if (changes.project_areas && Array.isArray(changes.project_areas)) {
+      const currentProjectAreas = await db.all("SELECT * FROM project_areas WHERE estimate_id = ? ORDER BY created_at ASC", [id]);
+      
+      for (let i = 0; i < changes.project_areas.length && i < currentProjectAreas.length; i++) {
+        const newArea = changes.project_areas[i];
+        const currentArea = currentProjectAreas[i];
+        
+        const areaUpdates = [];
+        const areaValues = [];
+        
+        if (newArea.labor_hours !== undefined) {
+          areaUpdates.push("labor_hours = ?");
+          areaValues.push(newArea.labor_hours);
+        }
+        
+        if (newArea.labor_rate !== undefined) {
+          areaUpdates.push("labor_rate = ?");
+          areaValues.push(newArea.labor_rate);
+        }
+        
+        if (newArea.material_cost !== undefined) {
+          areaUpdates.push("material_cost = ?");
+          areaValues.push(newArea.material_cost);
+        }
+        
+        if (areaUpdates.length > 0) {
+          areaValues.push(currentArea.id);
+          await db.run(`UPDATE project_areas SET ${areaUpdates.join(", ")} WHERE id = ?`, areaValues);
+        }
+      }
+    }
+    
+    // Create a simple revision log entry (without constraints)
+    const newRevisionNumber = currentEstimate.revision_number + 1;
+    console.log("REVISION: Attempting to create log entry with data:", {
+      estimate_id: parseInt(id),
+      revision_number: newRevisionNumber,
+      created_by: req.body.created_by || 'user',
+      revision_type: req.body.revision_type || 'price_adjustment',
+      change_summary: req.body.change_summary || 'Estimate revision',
+      previous_total: currentEstimate.total_amount,
+      new_total: changes.total_amount || currentEstimate.total_amount
+    });
+    
+    try {
+      const logResult = await db.run(`
+        INSERT INTO estimate_revisions (
+          estimate_id, revision_number, created_by, revision_type, 
+          change_summary, change_details, previous_total_amount, 
+          new_total_amount, previous_markup_percentage, new_markup_percentage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        parseInt(id),
+        newRevisionNumber,
+        req.body.created_by || 'user',
+        req.body.revision_type || 'price_adjustment',
+        req.body.change_summary || 'Estimate revision',
+        JSON.stringify(changes),
+        currentEstimate.total_amount,
+        changes.total_amount || currentEstimate.total_amount,
+        currentEstimate.markup_percentage,
+        changes.markup_percentage || currentEstimate.markup_percentage
+      ]);
+      console.log("REVISION: Log entry created successfully with ID:", logResult.lastID);
+      
+      // Verify the log was created
+      const createdLog = await db.get("SELECT * FROM estimate_revisions WHERE id = ?", [logResult.lastID]);
+      console.log("REVISION: Verified log entry:", createdLog);
+      
+    } catch (logError) {
+      console.error("REVISION: Log entry failed:", logError);
+      console.error("REVISION: Error details:", (logError as Error).message);
+      // Don't fail the whole revision if logging fails
+    }
+
+    // Verify the update worked
+    const updatedEstimate = await db.get("SELECT * FROM estimates WHERE id = ?", [id]);
+    console.log("REVISION: Update successful. New revision #", updatedEstimate.revision_number);
+    console.log("REVISION: Updated estimate:", {
+      id: updatedEstimate.id,
+      revision_number: updatedEstimate.revision_number,
+      markup_percentage: updatedEstimate.markup_percentage,
+      total_amount: updatedEstimate.total_amount
+    });
+    
+    res.json({
+      success: true,
+      message: "Estimate revision created successfully",
+      data: {
+        revision_number: updatedEstimate.revision_number,
+        updated_values: {
+          markup_percentage: updatedEstimate.markup_percentage,
+          total_amount: updatedEstimate.total_amount
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error("REVISION: Failed:", error);
+    res.status(500).json({
+      success: false,
+      error: "Revision failed",
+      details: (error as Error).message
+    });
+  }
+});
 // Approve estimate revision
 app.post('/api/estimates/:id/revisions/:revisionId/approve', async (req, res) => {
   try {
@@ -659,29 +860,108 @@ app.get('/api/estimates/:id/versions', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get the version group ID for this estimate
-    const estimate = await db.get('SELECT version_group_id FROM estimates WHERE id = ?', [id]);
-    if (!estimate) {
-      return res.status(404).json({ success: false, error: 'Estimate not found' });
-    }
-    
-    // Get all versions in this group
-    const versions = await db.all(`
+    // Get the current estimate
+    const currentEstimate = await db.get(`
       SELECT 
         e.*,
         c.name as client_name,
-        c.email as client_email,
-        er.revision_type,
-        er.change_summary,
-        er.approval_status,
-        er.approved_by,
-        er.approved_at
+        c.email as client_email
       FROM estimates e
       LEFT JOIN clients c ON e.client_id = c.id
-      LEFT JOIN estimate_revisions er ON e.id = er.estimate_id
-      WHERE e.version_group_id = ?
-      ORDER BY e.revision_number ASC
-    `, [estimate.version_group_id]);
+      WHERE e.id = ?
+    `, [id]);
+    
+    if (!currentEstimate) {
+      return res.status(404).json({ success: false, error: 'Estimate not found' });
+    }
+    
+    // Get all revision logs for this estimate, ordered by revision number
+    const revisionLogs = await db.all(`
+      SELECT * FROM estimate_revisions 
+      WHERE estimate_id = ? 
+      ORDER BY revision_number ASC
+    `, [id]);
+    
+    // Reconstruct historical versions by applying changes step by step
+    const versions = [];
+    
+    // Start with initial version (v1) - this would be the original estimate before any revisions
+    let currentState = {
+      id: parseInt(id),
+      estimate_number: currentEstimate.estimate_number,
+      title: currentEstimate.title,
+      revision_number: 1,
+      total_amount: null, // Will be calculated from first revision's previous_total_amount
+      labor_cost: 0,
+      material_cost: 0,
+      markup_percentage: currentEstimate.markup_percentage,
+      status: currentEstimate.status,
+      created_at: currentEstimate.created_at,
+      client_name: currentEstimate.client_name,
+      client_email: currentEstimate.client_email,
+      is_current_version: revisionLogs.length === 0, // Current if no revisions exist
+      revision_type: null,
+      change_summary: null
+    };
+    
+    // If we have revisions, the initial state's total should be the first revision's previous_total_amount
+    if (revisionLogs.length > 0) {
+      currentState.total_amount = revisionLogs[0].previous_total_amount;
+      
+      // Try to extract labor/material costs from the first revision's details
+      try {
+        const firstRevisionDetails = JSON.parse(revisionLogs[0].change_details || '{}');
+        // Work backwards - if first revision changed costs, calculate what they were before
+        if (firstRevisionDetails.labor_cost !== undefined && firstRevisionDetails.material_cost !== undefined) {
+          // Use previous values if available, otherwise use current estimate minus changes
+          currentState.labor_cost = firstRevisionDetails.labor_cost || 0;
+          currentState.material_cost = firstRevisionDetails.material_cost || 0;
+        }
+      } catch (e) {
+        // Fallback: estimate the original costs
+        const totalWithoutMarkup = (currentState.total_amount || 0) / (1 + (currentState.markup_percentage / 100));
+        currentState.labor_cost = totalWithoutMarkup * 0.6; // Estimate 60% labor
+        currentState.material_cost = totalWithoutMarkup * 0.4; // Estimate 40% material
+      }
+    } else {
+      // No revisions, use current estimate data
+      currentState.total_amount = currentEstimate.total_amount;
+      currentState.labor_cost = currentEstimate.labor_cost;
+      currentState.material_cost = currentEstimate.material_cost;
+    }
+    
+    versions.push({ ...currentState });
+    
+    // Apply each revision to build historical versions
+    revisionLogs.forEach((revision, index) => {
+      try {
+        const changeDetails = JSON.parse(revision.change_details || '{}');
+        
+        // Create new version state by applying this revision's changes
+        const newVersion = {
+          id: parseInt(id),
+          estimate_number: currentEstimate.estimate_number,
+          title: currentEstimate.title,
+          revision_number: revision.revision_number,
+          total_amount: revision.new_total_amount || changeDetails.total_amount || currentState.total_amount,
+          labor_cost: changeDetails.labor_cost !== undefined ? changeDetails.labor_cost : currentState.labor_cost,
+          material_cost: changeDetails.material_cost !== undefined ? changeDetails.material_cost : currentState.material_cost,
+          markup_percentage: changeDetails.markup_percentage !== undefined ? changeDetails.markup_percentage : currentState.markup_percentage,
+          status: currentEstimate.status,
+          created_at: revision.created_at,
+          client_name: currentEstimate.client_name,
+          client_email: currentEstimate.client_email,
+          is_current_version: index === revisionLogs.length - 1, // Last revision is current
+          revision_type: revision.revision_type,
+          change_summary: revision.change_summary
+        };
+        
+        versions.push(newVersion);
+        currentState = newVersion; // Update current state for next iteration
+      } catch (error) {
+        console.error('Error processing revision:', revision.id, error);
+      }
+    });
     
     res.json({
       success: true,
@@ -718,10 +998,54 @@ app.patch('/api/estimates/:id/status', async (req, res) => {
   }
 });
 
-// Get all invoices
+// Get all invoices with filtering and pagination
 app.get('/api/invoices', async (req, res) => {
   try {
-    const invoices = await db.all(`
+    const {
+      page = 1,
+      limit = 20,
+      client_id,
+      status,
+      search = '',
+      overdue
+    } = req.query as any;
+
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (client_id) {
+      whereClause += ' AND i.client_id = ?';
+      params.push(client_id);
+    }
+
+    if (status) {
+      whereClause += ' AND i.status = ?';
+      params.push(status);
+    }
+
+    if (search) {
+      whereClause += ' AND (i.title LIKE ? OR i.invoice_number LIKE ? OR c.name LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (overdue === 'true') {
+      whereClause += ' AND i.due_date < DATE("now") AND i.status != "paid"';
+    }
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM invoices i
+      LEFT JOIN clients c ON i.client_id = c.id
+      ${whereClause}
+    `;
+    const { total } = await db.get(countQuery, params);
+
+    // Get paginated results
+    const dataQuery = `
       SELECT 
         i.*,
         c.name as client_name,
@@ -732,17 +1056,21 @@ app.get('/api/invoices', async (req, res) => {
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
       LEFT JOIN estimates e ON i.estimate_id = e.id
+      ${whereClause}
       ORDER BY i.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `;
+    
+    const invoices = await db.all(dataQuery, [...params, parseInt(limit as string), offset]);
     
     res.json({
       success: true,
       data: {
         data: invoices,
-        total: invoices.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -766,6 +1094,10 @@ app.get('/api/invoices/:id', async (req, res) => {
         c.city as client_city,
         c.state as client_state,
         c.zip_code as client_zip_code,
+        c.job_address,
+        c.job_city,
+        c.job_state,
+        c.job_zip_code,
         e.estimate_number
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
@@ -814,7 +1146,8 @@ app.patch('/api/estimates/:id', async (req, res) => {
       description,
       valid_until,
       markup_percentage,
-      terms_and_notes
+      terms_and_notes,
+      project_areas
     } = req.body;
 
     // Validation
@@ -852,9 +1185,53 @@ app.patch('/api/estimates/:id', async (req, res) => {
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(id);
 
-    await db.run(`UPDATE estimates SET ${updates.join(', ')} WHERE id = ?`, values);
+    await db.run(`UPDATE estimates SET ${updates.join(', ')} WHERE id = ?`, [...values, id]);
+    
+    // Handle project areas update if provided
+    if (project_areas && Array.isArray(project_areas)) {
+      // Delete existing project areas for this estimate
+      await db.run('DELETE FROM project_areas WHERE estimate_id = ?', [id]);
+      
+      // Insert new project areas and calculate totals
+      let totalLaborCost = 0;
+      let totalMaterialCost = 0;
+      
+      for (const area of project_areas) {
+        const laborCost = (area.labor_hours || 0) * (area.labor_rate || 45);
+        const materialCost = area.material_cost || 0;
+        
+        totalLaborCost += laborCost;
+        totalMaterialCost += materialCost;
+        
+        await db.run(`
+          INSERT INTO project_areas (
+            estimate_id, area_name, area_type, surface_type, square_footage, 
+            ceiling_height, prep_requirements, paint_type, paint_brand, 
+            paint_color, finish_type, number_of_coats, labor_hours, 
+            labor_rate, material_cost, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          id, area.area_name, area.area_type || 'indoor', area.surface_type || 'drywall',
+          area.square_footage || 0, area.ceiling_height || 8, area.prep_requirements || '',
+          area.paint_type || 'Latex', area.paint_brand || 'Benjamin Moore', area.paint_color || '',
+          area.finish_type || 'Eggshell', area.number_of_coats || 2, area.labor_hours || 0,
+          area.labor_rate || 45, area.material_cost || 0, area.notes || ''
+        ]);
+      }
+      
+      // Update estimate totals
+      const currentMarkup = markup_percentage !== undefined ? markup_percentage : 
+        (await db.get('SELECT markup_percentage FROM estimates WHERE id = ?', [id]))?.markup_percentage || 0;
+      
+      const totalAmount = totalLaborCost + totalMaterialCost + ((totalLaborCost + totalMaterialCost) * (currentMarkup / 100));
+      
+      await db.run(`
+        UPDATE estimates 
+        SET labor_cost = ?, material_cost = ?, total_amount = ? 
+        WHERE id = ?
+      `, [totalLaborCost, totalMaterialCost, totalAmount, id]);
+    }
     
     const updatedEstimate = await db.get(`
       SELECT 
@@ -870,6 +1247,10 @@ app.patch('/api/estimates/:id', async (req, res) => {
     if (!updatedEstimate) {
       return res.status(404).json({ success: false, error: 'Estimate not found' });
     }
+
+    // Get project areas for the updated estimate
+    const projectAreas = await db.all('SELECT * FROM project_areas WHERE estimate_id = ?', [id]);
+    updatedEstimate.project_areas = projectAreas;
 
     res.json({
       success: true,
@@ -1196,6 +1577,129 @@ app.delete('/api/payments/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, error: 'Failed to delete payment' });
+  }
+});
+
+// Company Settings endpoints
+app.get('/api/company-settings', async (req, res) => {
+  try {
+    const settings = await db.get('SELECT * FROM company_settings ORDER BY id DESC LIMIT 1');
+    
+    res.json({
+      success: true,
+      data: settings || {
+        company_name: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        logo_url: ''
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch company settings' });
+  }
+});
+
+app.post('/api/company-settings', async (req, res) => {
+  try {
+    const { company_name, company_address, company_phone, company_email, logo_url } = req.body;
+
+    // Validation
+    if (!company_name || !company_email || !company_phone || !company_address) {
+      return res.status(400).json({ success: false, error: 'All company fields are required' });
+    }
+
+    const result = await db.run(`
+      INSERT INTO company_settings (company_name, company_address, company_phone, company_email, logo_url)
+      VALUES (?, ?, ?, ?, ?)
+    `, [company_name, company_address, company_phone, company_email, logo_url || null]);
+
+    const newSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [result.lastID]);
+
+    res.status(201).json({
+      success: true,
+      data: newSettings,
+      message: 'Company settings created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to create company settings' });
+  }
+});
+
+app.put('/api/company-settings', async (req, res) => {
+  try {
+    const { company_name, company_address, company_phone, company_email, logo_url } = req.body;
+
+    // Validation
+    if (!company_name || !company_email || !company_phone || !company_address) {
+      return res.status(400).json({ success: false, error: 'All company fields are required' });
+    }
+
+    // Get existing settings
+    const existingSettings = await db.get('SELECT * FROM company_settings ORDER BY id DESC LIMIT 1');
+    
+    if (existingSettings) {
+      // Update existing settings
+      await db.run(`
+        UPDATE company_settings 
+        SET company_name = ?, company_address = ?, company_phone = ?, company_email = ?, logo_url = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [company_name, company_address, company_phone, company_email, logo_url || null, existingSettings.id]);
+
+      const updatedSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [existingSettings.id]);
+      
+      res.json({
+        success: true,
+        data: updatedSettings,
+        message: 'Company settings updated successfully'
+      });
+    } else {
+      // Create new settings if none exist
+      const result = await db.run(`
+        INSERT INTO company_settings (company_name, company_address, company_phone, company_email, logo_url)
+        VALUES (?, ?, ?, ?, ?)
+      `, [company_name, company_address, company_phone, company_email, logo_url || null]);
+
+      const newSettings = await db.get('SELECT * FROM company_settings WHERE id = ?', [result.lastID]);
+
+      res.json({
+        success: true,
+        data: newSettings,
+        message: 'Company settings created successfully'
+      });
+    }
+  } catch (error) {
+    console.error('Error updating company settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to update company settings' });
+  }
+});
+
+// Logo upload endpoint with actual file handling
+app.post('/api/upload-logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    // Convert file to base64 for storage in database
+    const base64String = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    
+    res.json({
+      success: true,
+      url: base64String,
+      message: 'Logo uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'File size too large. Maximum 5MB allowed.' });
+      }
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: 'Failed to upload logo' });
   }
 });
 
