@@ -90,7 +90,7 @@ export class DatabaseManager {
       console.error('❌ Could not create database directory:', (error as Error).message);
     }
     
-    this.db = new sqlite3.Database(DB_PATH, (err) => {
+    this.db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
       if (err) {
         console.error('❌ Error opening database:', err);
         console.error('❌ Database path:', DB_PATH);
