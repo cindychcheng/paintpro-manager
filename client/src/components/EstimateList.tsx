@@ -32,6 +32,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     status: statusFilter === 'all' ? undefined : statusFilter
   });
 
+  console.log('EstimateList - estimates:', estimates);
+  console.log('EstimateList - loading:', loading);
+  console.log('EstimateList - error:', error);
+  console.log('EstimateList - debouncedSearchTerm:', debouncedSearchTerm);
+
   const { convertEstimateToInvoice } = useInvoices();
 
   // Debounce search term

@@ -20,7 +20,11 @@ export const useEstimates = (filters?: {
       setError(null);
       const response = await apiService.getEstimates(filters);
       
+      console.log('useEstimates response:', response);
+      
       if (response.success && response.data) {
+        console.log('Estimates data:', response.data.data);
+        console.log('Total:', response.data.total);
         setEstimates(response.data.data);
         setTotal(response.data.total);
         setTotalPages(response.data.totalPages);
@@ -28,6 +32,7 @@ export const useEstimates = (filters?: {
         throw new Error(response.error || 'Failed to fetch estimates');
       }
     } catch (err) {
+      console.error('useEstimates error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       setEstimates([]);
     } finally {
