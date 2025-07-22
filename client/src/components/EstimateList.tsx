@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
@@ -15,6 +15,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filters = useMemo(() => ({
     page: currentPage,
@@ -36,10 +37,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
   const { convertEstimateToInvoice } = useInvoices();
 
-  // Debounce search term
+  // Debounce search term with input ref
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      const currentValue = searchInputRef.current?.value || '';
+      setDebouncedSearchTerm(currentValue);
       setCurrentPage(1); // Reset to first page when searching
     }, 300);
     return () => clearTimeout(timeoutId);
@@ -152,28 +154,18 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
       <div className="flex flex-col sm:flex-row gap-6">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-          <form onSubmit={(e) => e.preventDefault()}>
-            <input
-              type="text"
-              placeholder="Search estimates..."
-              value={searchTerm}
-              onChange={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Search input onChange:', e.target.value);
-                setSearchTerm(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Enter key prevented');
-                }
-              }}
-              autoComplete="off"
-              className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
-            />
-          </form>
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search estimates..."
+            defaultValue={searchTerm}
+            onInput={(e) => {
+              const value = (e.target as HTMLInputElement).value;
+              setSearchTerm(value);
+            }}
+            autoComplete="off"
+            className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
+          />
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
