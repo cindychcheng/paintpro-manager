@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiService, Client } from '../services/api';
 
 export const useClients = (filters?: {
@@ -12,7 +12,7 @@ export const useClients = (filters?: {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -31,11 +31,11 @@ export const useClients = (filters?: {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters?.page, filters?.limit, filters?.search]);
 
   useEffect(() => {
     fetchClients();
-  }, [filters?.page, filters?.limit, filters?.search]);
+  }, [fetchClients]);
 
   const createClient = async (clientData: Omit<Client, 'id'>): Promise<boolean> => {
     try {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiService, Invoice, ConvertEstimateRequest, RecordPaymentRequest } from '../services/api';
 
 export const useInvoices = (filters?: {
@@ -15,7 +15,7 @@ export const useInvoices = (filters?: {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -34,11 +34,11 @@ export const useInvoices = (filters?: {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters?.page, filters?.limit, filters?.client_id, filters?.status, filters?.search, filters?.overdue]);
 
   useEffect(() => {
     fetchInvoices();
-  }, [filters?.page, filters?.limit, filters?.client_id, filters?.status, filters?.search, filters?.overdue]);
+  }, [fetchInvoices]);
 
   const convertEstimateToInvoice = async (
     estimateId: number, 

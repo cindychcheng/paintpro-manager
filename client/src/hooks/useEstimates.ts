@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiService, Estimate, CreateEstimateRequest } from '../services/api';
 
 export const useEstimates = (filters?: {
@@ -14,7 +14,7 @@ export const useEstimates = (filters?: {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const fetchEstimates = async () => {
+  const fetchEstimates = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -33,11 +33,11 @@ export const useEstimates = (filters?: {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters?.page, filters?.limit, filters?.client_id, filters?.status, filters?.search]);
 
   useEffect(() => {
     fetchEstimates();
-  }, [filters?.page, filters?.limit, filters?.client_id, filters?.status, filters?.search]);
+  }, [fetchEstimates]);
 
   const createEstimate = async (estimateData: CreateEstimateRequest): Promise<boolean> => {
     try {
