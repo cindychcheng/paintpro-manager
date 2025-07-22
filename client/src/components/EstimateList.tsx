@@ -32,11 +32,6 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     status: statusFilter === 'all' ? undefined : statusFilter
   });
 
-  console.log('EstimateList - estimates:', estimates);
-  console.log('EstimateList - loading:', loading);
-  console.log('EstimateList - error:', error);
-  console.log('EstimateList - debouncedSearchTerm:', debouncedSearchTerm);
-
   const { convertEstimateToInvoice } = useInvoices();
 
   // Debounce search term
@@ -293,11 +288,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
           </div>
           <h3 className="text-2xl font-bold text-slate-700 mb-2">No estimates found</h3>
           <p className="text-slate-500 text-lg mb-8 max-w-md mx-auto">
-            {searchTerm || statusFilter !== 'all' 
+            {debouncedSearchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filter criteria' 
               : 'Create your first estimate to get started with professional project proposals'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {!debouncedSearchTerm && statusFilter === 'all' && (
             <button
               onClick={onCreateNew}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl mx-auto"
