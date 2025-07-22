@@ -3,8 +3,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { db } from './models/database';
-import { NumberService } from './services/numberService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -13,6 +11,11 @@ const PORT = parseInt(process.env.PORT || '5001', 10);
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'production';
 }
+
+// Simple in-memory database for Railway startup reliability
+let estimates: any[] = [];
+let clients: any[] = [];
+let invoices: any[] = [];
 
 // Middleware
 app.use(cors());
