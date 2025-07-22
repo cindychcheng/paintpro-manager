@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
@@ -16,6 +16,13 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const filters = useMemo(() => ({
+    page: currentPage,
+    limit: 20,
+    search: debouncedSearchTerm,
+    status: statusFilter === 'all' ? undefined : statusFilter
+  }), [currentPage, debouncedSearchTerm, statusFilter]);
+
   const {
     estimates,
     loading,
@@ -25,12 +32,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     refetch,
     updateEstimateStatus,
     deleteEstimate
-  } = useEstimates({
-    page: currentPage,
-    limit: 20,
-    search: debouncedSearchTerm,
-    status: statusFilter === 'all' ? undefined : statusFilter
-  });
+  } = useEstimates(filters);
 
   const { convertEstimateToInvoice } = useInvoices();
 

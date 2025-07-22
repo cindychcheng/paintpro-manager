@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Eye, Edit, DollarSign, Plus, FileText, AlertCircle, CheckCircle, Send } from 'lucide-react';
 import { useInvoices } from '../hooks/useInvoices';
 import { Invoice } from '../services/api';
@@ -17,6 +17,14 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
   const [overdueFilter, setOverdueFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const filters = useMemo(() => ({
+    page: currentPage,
+    limit: 20,
+    search: debouncedSearchTerm,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    overdue: overdueFilter
+  }), [currentPage, debouncedSearchTerm, statusFilter, overdueFilter]);
+
   const {
     invoices,
     loading,
@@ -25,13 +33,7 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
     totalPages,
     refetch,
     updateInvoiceStatus
-  } = useInvoices({
-    page: currentPage,
-    limit: 20,
-    search: debouncedSearchTerm,
-    status: statusFilter === 'all' ? undefined : statusFilter,
-    overdue: overdueFilter
-  });
+  } = useInvoices(filters);
 
   // Debounce search term
   useEffect(() => {

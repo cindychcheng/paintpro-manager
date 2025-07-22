@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, MapPin, Phone, Mail } from 'lucide-react';
 import { useClients } from '../hooks/useClients';
 import { Client } from '../services/api';
@@ -14,6 +14,12 @@ const ClientList: React.FC<ClientListProps> = ({ onCreateNew, onViewClient, onEd
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const filters = useMemo(() => ({
+    page: currentPage,
+    limit: 20,
+    search: debouncedSearchTerm
+  }), [currentPage, debouncedSearchTerm]);
+
   const {
     clients,
     loading,
@@ -22,11 +28,7 @@ const ClientList: React.FC<ClientListProps> = ({ onCreateNew, onViewClient, onEd
     totalPages,
     refetch,
     deleteClient
-  } = useClients({
-    page: currentPage,
-    limit: 20,
-    search: debouncedSearchTerm
-  });
+  } = useClients(filters);
 
   // Debounce search term
   useEffect(() => {
