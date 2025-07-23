@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
@@ -15,6 +15,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filters = useMemo(() => ({
     page: currentPage,
@@ -173,6 +174,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search estimates..."
             value={searchTerm}
@@ -186,6 +188,16 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
                 e.preventDefault();
                 console.log('Enter key prevented');
               }
+            }}
+            onBlur={(e) => {
+              console.log('Search input lost focus');
+              // Refocus after a short delay if component is still mounted
+              setTimeout(() => {
+                if (searchInputRef.current && document.activeElement !== searchInputRef.current) {
+                  console.log('Restoring focus to search input');
+                  searchInputRef.current.focus();
+                }
+              }, 100);
             }}
             autoComplete="off"
             className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
