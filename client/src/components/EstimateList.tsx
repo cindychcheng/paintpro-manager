@@ -31,8 +31,6 @@ const SearchInput = memo(({ searchTerm, onSearchChange }: {
           onSearchChange(target.value);
         }}
         onKeyDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
           if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();
