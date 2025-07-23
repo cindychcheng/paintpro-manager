@@ -9,9 +9,16 @@ interface IsolatedSearchProps {
 const IsolatedSearch: React.FC<IsolatedSearchProps> = ({ onSearchChange }) => {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const isInitialMount = useRef(true);
   
-  // Debounce and send to parent - remove onSearchChange from deps to prevent double calls
+  // Debounce and send to parent - skip initial empty value
   useEffect(() => {
+    // Skip the initial mount with empty value
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
     const timeoutId = setTimeout(() => {
       console.log('🔎 IsolatedSearch sending value to parent:', value);
       onSearchChange(value);
