@@ -38,12 +38,12 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
   // Debug page refresh issue
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       console.log('Page is about to refresh/navigate');
       console.trace('Page refresh stack trace');
     };
     
-    const handleUnhandledRejection = (e) => {
+    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
       console.log('Unhandled promise rejection:', e);
     };
     
