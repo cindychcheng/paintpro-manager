@@ -10,13 +10,13 @@ const IsolatedSearch: React.FC<IsolatedSearchProps> = ({ onSearchChange }) => {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Debounce and send to parent
+  // Debounce and send to parent - remove onSearchChange from deps to prevent double calls
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       onSearchChange(value);
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [value, onSearchChange]);
+  }, [value]); // Only depend on value, not onSearchChange
   
   return (
     <div className="relative flex-1">
