@@ -1,7 +1,0 @@
-# Completely ignore client directory
-client/*
-client/
-.git/
-node_modules/
-*.log
-.DS_Store
