@@ -98,11 +98,15 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     };
     
     const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      console.log('❌ Unhandled promise rejection:', e);
+      console.error('❌ UNHANDLED PROMISE REJECTION - PREVENTING PAGE RELOAD:', e.reason);
+      console.trace('Promise rejection stack trace:');
+      e.preventDefault(); // Prevent browser default behavior that might cause reload
     };
 
     const handleError = (e: ErrorEvent) => {
-      console.log('💥 JavaScript error:', e.error);
+      console.error('💥 JAVASCRIPT ERROR - PREVENTING PAGE RELOAD:', e.error);
+      console.trace('Error stack trace:');
+      e.preventDefault(); // Prevent browser default error handling
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -210,7 +214,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-purple-800 bg-clip-text text-transparent">Estimates [DEPLOYMENT TEST]</h2>
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-purple-800 bg-clip-text text-transparent">Estimates</h2>
           <p className="text-xl text-slate-600 mt-2">Manage your project estimates with ease</p>
         </div>
         <button
