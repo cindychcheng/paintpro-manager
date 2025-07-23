@@ -36,6 +36,26 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
   const { convertEstimateToInvoice } = useInvoices();
 
+  // Debug page refresh issue
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      console.log('Page is about to refresh/navigate');
+      console.trace('Page refresh stack trace');
+    };
+    
+    const handleUnhandledRejection = (e) => {
+      console.log('Unhandled promise rejection:', e);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   // Debounce search term with direct timeout management
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -156,7 +176,17 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
             type="text"
             placeholder="Search estimates..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              console.log('Search onChange triggered:', e.target.value);
+              setSearchTerm(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              console.log('Search keyDown:', e.key);
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                console.log('Enter key prevented');
+              }
+            }}
             autoComplete="off"
             className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
           />
