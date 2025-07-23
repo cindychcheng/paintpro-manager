@@ -86,23 +86,30 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
   const { convertEstimateToInvoice } = useInvoices();
 
-  // Debug page refresh issue
+  // Enhanced debugging to catch what causes page refresh
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log('Page is about to refresh/navigate');
-      console.trace('Page refresh stack trace');
+      console.log('🚨 PAGE REFRESH DETECTED!');
+      console.trace('Stack trace of refresh:');
+      debugger; // Will pause in browser dev tools
     };
     
     const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      console.log('Unhandled promise rejection:', e);
+      console.log('❌ Unhandled promise rejection:', e);
+    };
+
+    const handleError = (e: ErrorEvent) => {
+      console.log('💥 JavaScript error:', e.error);
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
     };
   }, []);
 
