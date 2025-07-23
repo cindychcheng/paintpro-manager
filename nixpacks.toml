@@ -1,17 +1,6 @@
-# Nixpacks configuration to prevent dual deployments
-[phases.setup]
-nixPkgs = ["nodejs"]
-
+# Simple nixpacks configuration 
 [phases.build]
-cmds = [
-  "mv client/package.json client/package.json.bak",
-  "npm install", 
-  "npm run build",
-  "mv client/package.json.bak client/package.json"
-]
+cmds = ["npm install", "npm run build"]
 
 [phases.start]
 cmd = "npm start"
-
-[variables]
-NODE_ENV = "production"

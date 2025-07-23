@@ -1,6 +1,12 @@
-# Ignore client directory to prevent duplicate deployments
-# The client is built as part of the main deployment process
-client/
+# Ignore client directory completely to prevent duplicate deployments
+client/package.json
+client/package-lock.json
+client/node_modules/
+client/src/
+client/public/
+client/dist/
+client/build/
+client/*.json
 .git/
 node_modules/
 *.log
