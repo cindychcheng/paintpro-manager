@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
-import StandaloneSearch from './StandaloneSearch';
+import PureSearch from './PureSearch';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
 import { Estimate } from '../services/api';
@@ -61,35 +61,25 @@ const SearchInput = memo(({ searchTerm, onSearchChange }: {
 });
 
 const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate, onEditEstimate }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filters = useMemo(() => ({
-    page: currentPage,
-    limit: 20,
-    search: searchTerm,
-    status: statusFilter === 'all' ? undefined : statusFilter
-  }), [currentPage, searchTerm, statusFilter]);
-
+  // Use the hook only for non-search operations
   const {
-    estimates,
-    loading,
-    error,
-    total,
-    totalPages,
     refetch,
     updateEstimateStatus,
     deleteEstimate
-  } = useEstimates(filters);
+  } = useEstimates({ page: 1, limit: 1000, status: 'all' }); // dummy params
 
   const { convertEstimateToInvoice } = useInvoices();
 
 
-  // Reset page when search term changes (debouncing now handled in IsolatedSearch)
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  const handleSearchResults = (results: Estimate[]) => {
+    setEstimates(results);
+  };
 
   // Reset page when status filter changes
   useEffect(() => {
@@ -196,7 +186,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-6">
-        <StandaloneSearch onSearch={setSearchTerm} />
+        <PureSearch onResults={handleSearchResults} />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
             <Filter size={20} className="text-slate-400" />
@@ -327,11 +317,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
           </div>
           <h3 className="text-2xl font-bold text-slate-700 mb-2">No estimates found</h3>
           <p className="text-slate-500 text-lg mb-8 max-w-md mx-auto">
-            {searchTerm || statusFilter !== 'all' 
-              ? 'Try adjusting your search or filter criteria' 
+            {statusFilter !== 'all' 
+              ? 'Try adjusting your filter criteria' 
               : 'Create your first estimate to get started with professional project proposals'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {statusFilter === 'all' && (
             <button
               onClick={onCreateNew}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl mx-auto"
