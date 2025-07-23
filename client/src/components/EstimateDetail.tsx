@@ -136,6 +136,7 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
       // For now, just close the version history - navigation handled by parent
       console.log('Would navigate to version:', versionId);
       // TODO: Implement proper version navigation through parent component
+      // Force rebuild to clear TypeScript cache
     }
   };
 
