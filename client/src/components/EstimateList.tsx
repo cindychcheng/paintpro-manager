@@ -65,12 +65,16 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filters = useMemo(() => ({
-    page: currentPage,
-    limit: 20,
-    search: searchTerm,
-    status: statusFilter === 'all' ? undefined : statusFilter
-  }), [currentPage, searchTerm, statusFilter]);
+  const filters = useMemo(() => {
+    const newFilters = {
+      page: currentPage,
+      limit: 20,
+      search: searchTerm,
+      status: statusFilter === 'all' ? undefined : statusFilter
+    };
+    console.log('📊 New filters created:', newFilters);
+    return newFilters;
+  }, [currentPage, searchTerm, statusFilter]);
 
   const {
     estimates,

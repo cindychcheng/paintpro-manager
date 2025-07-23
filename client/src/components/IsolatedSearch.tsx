@@ -13,6 +13,7 @@ const IsolatedSearch: React.FC<IsolatedSearchProps> = ({ onSearchChange }) => {
   // Debounce and send to parent - remove onSearchChange from deps to prevent double calls
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      console.log('🔎 IsolatedSearch sending value to parent:', value);
       onSearchChange(value);
     }, 300);
     return () => clearTimeout(timeoutId);

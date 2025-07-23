@@ -15,6 +15,7 @@ export const useEstimates = (filters?: {
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchEstimates = useCallback(async () => {
+    console.log('🔍 fetchEstimates called with filters:', filters);
     try {
       setLoading(true);
       setError(null);
