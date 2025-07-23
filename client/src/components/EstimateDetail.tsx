@@ -133,8 +133,9 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
     // Navigate to the specific version without page refresh
     setShowVersionHistory(false);
     if (versionId !== estimateId) {
-      // Use onEdit callback instead of hard navigation
-      onEdit?.(versionId);
+      // For now, just close the version history - navigation handled by parent
+      console.log('Would navigate to version:', versionId);
+      // TODO: Implement proper version navigation through parent component
     }
   };
 
