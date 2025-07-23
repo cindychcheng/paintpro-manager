@@ -1,6 +1,0 @@
-# Simple nixpacks configuration 
-[phases.build]
-cmds = ["npm install", "npm run build"]
-
-[phases.start]
-cmd = "npm start"

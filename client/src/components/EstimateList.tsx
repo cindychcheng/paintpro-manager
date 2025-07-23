@@ -10,42 +10,20 @@ interface EstimateListProps {
   onEditEstimate: (id: number) => void;
 }
 
-// Completely isolated search component with internal state
-const SearchInput = memo(({ onSearchChange }: { 
+// Simple search component - no internal state management to avoid complications
+const SearchInput = memo(({ searchTerm, onSearchChange }: { 
+  searchTerm: string;
   onSearchChange: (value: string) => void; 
 }) => {
-  const [internalValue, setInternalValue] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  
-  // Send updates to parent only after delay
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      onSearchChange(internalValue);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [internalValue, onSearchChange]);
-  
   return (
     <div className="relative flex-1">
       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
       <input
-        ref={searchInputRef}
         type="text"
         placeholder="Search estimates..."
-        value={internalValue}
+        defaultValue={searchTerm}
         onChange={(e) => {
-          console.log('Search onChange triggered:', e.target.value);
-          setInternalValue(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          console.log('Search keyDown:', e.key);
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            console.log('Enter key prevented');
-          }
-        }}
-        onBlur={(e) => {
-          console.log('Search input lost focus');
+          onSearchChange(e.target.value);
         }}
         autoComplete="off"
         className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
@@ -56,15 +34,16 @@ const SearchInput = memo(({ onSearchChange }: {
 
 const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate, onEditEstimate }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   const filters = useMemo(() => ({
     page: currentPage,
     limit: 20,
-    search: searchTerm,
+    search: debouncedSearchTerm,
     status: statusFilter === 'all' ? undefined : statusFilter
-  }), [currentPage, searchTerm, statusFilter]);
+  }), [currentPage, debouncedSearchTerm, statusFilter]);
 
   const {
     estimates,
@@ -99,9 +78,13 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     };
   }, []);
 
-  // Reset page when search term changes
+  // Debounce search term
   useEffect(() => {
-    setCurrentPage(1);
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
   // Reset page when status filter changes
@@ -209,7 +192,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-6">
-        <SearchInput onSearchChange={setSearchTerm} />
+        <SearchInput searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
             <Filter size={20} className="text-slate-400" />
@@ -340,11 +323,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
           </div>
           <h3 className="text-2xl font-bold text-slate-700 mb-2">No estimates found</h3>
           <p className="text-slate-500 text-lg mb-8 max-w-md mx-auto">
-            {searchTerm || statusFilter !== 'all' 
+            {debouncedSearchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filter criteria' 
               : 'Create your first estimate to get started with professional project proposals'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {!debouncedSearchTerm && statusFilter === 'all' && (
             <button
               onClick={onCreateNew}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl mx-auto"
