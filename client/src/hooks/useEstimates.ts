@@ -33,7 +33,7 @@ export const useEstimates = (filters?: {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, [filters?.page, filters?.limit, filters?.search, filters?.status, filters?.client_id]);
 
   useEffect(() => {
     fetchEstimates();
