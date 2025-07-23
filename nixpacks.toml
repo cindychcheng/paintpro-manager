@@ -1,6 +1,6 @@
 # Nixpacks configuration to prevent dual deployments
 [phases.setup]
-nixPkgs = ["nodejs", "npm"]
+nixPkgs = ["nodejs"]
 
 [phases.build]
 cmds = [
