@@ -62,16 +62,15 @@ const SearchInput = memo(({ searchTerm, onSearchChange }: {
 
 const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate, onEditEstimate }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   const filters = useMemo(() => ({
     page: currentPage,
     limit: 20,
-    search: debouncedSearchTerm,
+    search: searchTerm,
     status: statusFilter === 'all' ? undefined : statusFilter
-  }), [currentPage, debouncedSearchTerm, statusFilter]);
+  }), [currentPage, searchTerm, statusFilter]);
 
   const {
     estimates,
@@ -113,13 +112,9 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     };
   }, []);
 
-  // Debounce search term
+  // Reset page when search term changes (debouncing now handled in IsolatedSearch)
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(timeoutId);
+    setCurrentPage(1);
   }, [searchTerm]);
 
   // Reset page when status filter changes
@@ -358,11 +353,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
           </div>
           <h3 className="text-2xl font-bold text-slate-700 mb-2">No estimates found</h3>
           <p className="text-slate-500 text-lg mb-8 max-w-md mx-auto">
-            {debouncedSearchTerm || statusFilter !== 'all' 
+            {searchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filter criteria' 
               : 'Create your first estimate to get started with professional project proposals'}
           </p>
-          {!debouncedSearchTerm && statusFilter === 'all' && (
+          {!searchTerm && statusFilter === 'all' && (
             <button
               onClick={onCreateNew}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl mx-auto"
