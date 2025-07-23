@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
@@ -9,6 +9,44 @@ interface EstimateListProps {
   onViewEstimate: (id: number) => void;
   onEditEstimate: (id: number) => void;
 }
+
+// Separate search component to prevent re-renders
+const SearchInput = memo(({ searchTerm, onSearchChange }: { 
+  searchTerm: string; 
+  onSearchChange: (value: string) => void; 
+}) => {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  return (
+    <div className="relative flex-1">
+      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+      <input
+        key="search-input"
+        ref={searchInputRef}
+        type="text"
+        placeholder="Search estimates..."
+        value={searchTerm}
+        onChange={(e) => {
+          console.log('Search onChange triggered:', e.target.value);
+          onSearchChange(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          console.log('Search keyDown:', e.key);
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            console.log('Enter key prevented');
+          }
+        }}
+        onBlur={(e) => {
+          console.log('Search input lost focus');
+        }}
+        autoComplete="off"
+        autoFocus={false}
+        className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
+      />
+    </div>
+  );
+});
 
 const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate, onEditEstimate }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -171,38 +209,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search estimates..."
-            value={searchTerm}
-            onChange={(e) => {
-              console.log('Search onChange triggered:', e.target.value);
-              setSearchTerm(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              console.log('Search keyDown:', e.key);
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                console.log('Enter key prevented');
-              }
-            }}
-            onBlur={(e) => {
-              console.log('Search input lost focus');
-              // Refocus after a short delay if component is still mounted
-              setTimeout(() => {
-                if (searchInputRef.current && document.activeElement !== searchInputRef.current) {
-                  console.log('Restoring focus to search input');
-                  searchInputRef.current.focus();
-                }
-              }, 100);
-            }}
-            autoComplete="off"
-            className="w-full pl-12 pr-6 py-4 bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 shadow-lg placeholder:text-slate-400 text-slate-700"
-          />
-        </div>
+        <SearchInput searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
             <Filter size={20} className="text-slate-400" />
