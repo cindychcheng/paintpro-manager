@@ -20,7 +20,6 @@ const StandaloneSearch: React.FC<StandaloneSearchProps> = ({ onSearch }) => {
     
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      console.log('🚀 StandaloneSearch calling onSearch with:', value);
       onSearch(value);
     }, 300);
   };

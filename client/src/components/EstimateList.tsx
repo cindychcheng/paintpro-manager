@@ -65,16 +65,12 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filters = useMemo(() => {
-    const newFilters = {
-      page: currentPage,
-      limit: 20,
-      search: searchTerm,
-      status: statusFilter === 'all' ? undefined : statusFilter
-    };
-    console.log('📊 New filters created:', newFilters);
-    return newFilters;
-  }, [currentPage, searchTerm, statusFilter]);
+  const filters = useMemo(() => ({
+    page: currentPage,
+    limit: 20,
+    search: searchTerm,
+    status: statusFilter === 'all' ? undefined : statusFilter
+  }), [currentPage, searchTerm, statusFilter]);
 
   const {
     estimates,
@@ -89,36 +85,6 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
   const { convertEstimateToInvoice } = useInvoices();
 
-  // Enhanced debugging to catch what causes page refresh
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log('🚨 PAGE REFRESH DETECTED!');
-      console.trace('Stack trace of refresh:');
-      debugger; // Will pause in browser dev tools
-    };
-    
-    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      console.error('❌ UNHANDLED PROMISE REJECTION - PREVENTING PAGE RELOAD:', e.reason);
-      console.trace('Promise rejection stack trace:');
-      e.preventDefault(); // Prevent browser default behavior that might cause reload
-    };
-
-    const handleError = (e: ErrorEvent) => {
-      console.error('💥 JAVASCRIPT ERROR - PREVENTING PAGE RELOAD:', e.error);
-      console.trace('Error stack trace:');
-      e.preventDefault(); // Prevent browser default error handling
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
-    };
-  }, []);
 
   // Reset page when search term changes (debouncing now handled in IsolatedSearch)
   useEffect(() => {

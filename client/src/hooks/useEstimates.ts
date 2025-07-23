@@ -15,7 +15,6 @@ export const useEstimates = (filters?: {
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchEstimates = useCallback(async () => {
-    console.log('🔍 fetchEstimates called with filters:', filters);
     try {
       setLoading(true);
       setError(null);
@@ -26,16 +25,11 @@ export const useEstimates = (filters?: {
         setTotal(response.data.total);
         setTotalPages(response.data.totalPages);
       } else {
-        console.error('❌ API response error:', response.error);
         throw new Error(response.error || 'Failed to fetch estimates');
       }
     } catch (err) {
-      console.error('💥 fetchEstimates error caught:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       setEstimates([]);
-      
-      // Prevent unhandled promise rejection from causing page reload
-      return Promise.resolve();
     } finally {
       setLoading(false);
     }
