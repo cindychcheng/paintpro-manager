@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Trash2, AlertCircle, Send, CheckCircle, FileText, DollarSign } from 'lucide-react';
+import IsolatedSearch from './IsolatedSearch';
 import { useEstimates } from '../hooks/useEstimates';
 import { useInvoices } from '../hooks/useInvoices';
 import { Estimate } from '../services/api';
@@ -219,7 +220,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-6">
-        <SearchInput searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+        <IsolatedSearch onSearchChange={setSearchTerm} />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20">
             <Filter size={20} className="text-slate-400" />
