@@ -130,12 +130,11 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
   };
 
   const handleViewVersion = (versionId: number) => {
-    // Navigate to the specific version
-    // For now, we'll just close the history and potentially navigate
+    // Navigate to the specific version without page refresh
     setShowVersionHistory(false);
     if (versionId !== estimateId) {
-      // Could navigate to the specific version
-      window.location.href = `/estimates/${versionId}`;
+      // Use onEdit callback instead of hard navigation
+      onEdit?.(versionId);
     }
   };
 
