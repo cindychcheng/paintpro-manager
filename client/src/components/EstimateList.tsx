@@ -109,17 +109,30 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   };
 
   const handleStatusUpdate = async (id: number, newStatus: Estimate['status']) => {
+    // Optimistically update the local state
+    setEstimates(prev => prev.map(estimate => 
+      estimate.id === id ? { ...estimate, status: newStatus } : estimate
+    ));
+
     const success = await updateEstimateStatus(id, newStatus);
-    if (success) {
+    if (!success) {
+      // Revert on failure - refetch to get the correct state
       refetch();
     }
   };
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this estimate?')) {
+      // Store the original estimate for potential revert
+      const originalEstimate = estimates.find(e => e.id === id);
+      
+      // Optimistically remove from local state
+      setEstimates(prev => prev.filter(estimate => estimate.id !== id));
+
       const success = await deleteEstimate(id);
-      if (success) {
-        refetch();
+      if (!success && originalEstimate) {
+        // Revert on failure - add the estimate back
+        setEstimates(prev => [...prev, originalEstimate]);
       }
     }
   };
@@ -128,6 +141,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     const today = new Date();
     const dueDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
     
+    // Optimistically update the status to 'converted'
+    setEstimates(prev => prev.map(estimate => 
+      estimate.id === estimateId ? { ...estimate, status: 'converted' as const } : estimate
+    ));
+    
     const success = await convertEstimateToInvoice(estimateId, {
       due_date: dueDate.toISOString().split('T')[0],
       payment_terms: 'Net 30'
@@ -135,7 +153,9 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
     
     if (success) {
       alert('Estimate successfully converted to invoice!');
-      refetch(); // Refresh estimates list to show updated status
+    } else {
+      // Revert on failure - refetch to get the correct state
+      refetch();
     }
   };
 
