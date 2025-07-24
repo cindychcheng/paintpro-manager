@@ -44,7 +44,7 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
         area_name: '',
         area_type: 'indoor',
         surface_type: 'drywall',
-        square_footage: 0,
+        square_footage: undefined,
         ceiling_height: 8,
         prep_requirements: '',
         paint_type: 'Latex',
@@ -91,7 +91,7 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
     
     formData.project_areas.forEach((area, index) => {
       if (!area.area_name.trim()) newErrors[`area_${index}_name`] = 'Area name is required';
-      if (!area.square_footage || area.square_footage <= 0) newErrors[`area_${index}_sqft`] = 'Square footage must be greater than 0';
+      // Square footage is now optional
     });
     
     if (Object.keys(newErrors).length > 0) {
@@ -366,12 +366,12 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Square Footage *
+                      Square Footage
                     </label>
                     <input
                       type="number"
-                      value={area.square_footage}
-                      onChange={(e) => updateProjectArea(index, 'square_footage', parseFloat(e.target.value) || 0)}
+                      value={area.square_footage || ''}
+                      onChange={(e) => updateProjectArea(index, 'square_footage', e.target.value ? parseFloat(e.target.value) : undefined)}
                       className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors[`area_${index}_sqft`] ? 'border-red-300' : 'border-gray-300'
                       }`}

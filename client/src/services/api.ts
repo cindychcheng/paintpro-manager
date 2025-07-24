@@ -24,7 +24,7 @@ export interface ProjectArea {
   area_name: string;
   area_type: 'indoor' | 'outdoor';
   surface_type: string;
-  square_footage: number;
+  square_footage?: number;
   ceiling_height?: number;
   prep_requirements: string;
   paint_type: string;
