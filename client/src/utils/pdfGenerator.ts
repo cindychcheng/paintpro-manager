@@ -222,13 +222,19 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   if (estimate.project_areas && estimate.project_areas.length > 0) {
     const tableData = estimate.project_areas.map(area => {
       // Calculate labor amount (hours × rate)
-      const laborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      const baseLaborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      const baseMaterialAmount = area.material_cost || 0;
+      
+      // Apply markup to both labor and material
+      const markupMultiplier = 1 + (estimate.markup_percentage / 100);
+      const laborWithMarkup = baseLaborAmount * markupMultiplier;
+      const materialWithMarkup = baseMaterialAmount * markupMultiplier;
       
       return [
         area.area_name,
         area.area_type,
-        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
-        area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
+        laborWithMarkup > 0 ? formatCurrency(laborWithMarkup) : 'N/A',
+        materialWithMarkup > 0 ? formatCurrency(materialWithMarkup) : 'N/A'
       ];
     });
     
@@ -240,10 +246,10 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 35 }
+        0: { cellWidth: 45 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 40 }
       },
       margin: { left: 20, right: 20 }
     });
@@ -269,10 +275,13 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   
   // Right column: Cost breakdown
   const costStartY = afterTableY;
+  const markupMultiplier = 1 + (estimate.markup_percentage / 100);
+  const laborWithMarkup = estimate.labor_cost * markupMultiplier;
+  const materialWithMarkup = estimate.material_cost * markupMultiplier;
+  
   const costData = [
-    ['Labor Cost', formatCurrency(estimate.labor_cost)],
-    ['Material Cost', formatCurrency(estimate.material_cost)],
-    ['Markup (' + estimate.markup_percentage + '%)', formatCurrency((estimate.labor_cost + estimate.material_cost) * (estimate.markup_percentage / 100))],
+    ['Labor Cost', formatCurrency(laborWithMarkup)],
+    ['Material Cost', formatCurrency(materialWithMarkup)],
     ['Total Amount', formatCurrency(estimate.total_amount)]
   ];
   
@@ -482,13 +491,19 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   if (invoice.project_areas && invoice.project_areas.length > 0) {
     const tableData = invoice.project_areas.map(area => {
       // Calculate labor amount (hours × rate)
-      const laborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      const baseLaborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      const baseMaterialAmount = area.material_cost || 0;
+      
+      // Apply markup to both labor and material
+      const markupMultiplier = 1 + (invoice.markup_percentage / 100);
+      const laborWithMarkup = baseLaborAmount * markupMultiplier;
+      const materialWithMarkup = baseMaterialAmount * markupMultiplier;
       
       return [
         area.area_name,
         area.area_type,
-        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
-        area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
+        laborWithMarkup > 0 ? formatCurrency(laborWithMarkup) : 'N/A',
+        materialWithMarkup > 0 ? formatCurrency(materialWithMarkup) : 'N/A'
       ];
     });
     
@@ -500,10 +515,10 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 35 }
+        0: { cellWidth: 45 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 40 }
       },
       margin: { left: 20, right: 20 }
     });
