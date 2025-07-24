@@ -494,10 +494,9 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
       const baseLaborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
       const baseMaterialAmount = area.material_cost || 0;
       
-      // Apply markup to both labor and material
-      const markupMultiplier = 1 + (invoice.markup_percentage / 100);
-      const laborWithMarkup = baseLaborAmount * markupMultiplier;
-      const materialWithMarkup = baseMaterialAmount * markupMultiplier;
+      // For invoices, amounts are already final (markup already applied during conversion)
+      const laborWithMarkup = baseLaborAmount;
+      const materialWithMarkup = baseMaterialAmount;
       
       return [
         area.area_name,
