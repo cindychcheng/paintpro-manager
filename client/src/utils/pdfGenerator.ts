@@ -220,29 +220,30 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   yPosition += 10;
   
   if (estimate.project_areas && estimate.project_areas.length > 0) {
-    const tableData = estimate.project_areas.map(area => [
-      area.area_name,
-      area.area_type,
-      area.square_footage ? `${area.square_footage} sq ft` : 'N/A',
-      area.paint_color || 'N/A',
-      area.labor_hours ? `${area.labor_hours}h` : 'N/A',
-      area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
-    ]);
+    const tableData = estimate.project_areas.map(area => {
+      // Calculate labor amount (hours × rate)
+      const laborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      
+      return [
+        area.area_name,
+        area.area_type,
+        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
+        area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
+      ];
+    });
     
     autoTable(doc, {
       startY: yPosition,
-      head: [['Area', 'Type', 'Size', 'Paint Color', 'Labor', 'Materials']],
+      head: [['Area', 'Type', 'Labour Amount', 'Material Amount']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 20 }
+        0: { cellWidth: 50 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 35 }
       },
       margin: { left: 20, right: 20 }
     });
@@ -479,29 +480,30 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   yPosition += 10;
   
   if (invoice.project_areas && invoice.project_areas.length > 0) {
-    const tableData = invoice.project_areas.map(area => [
-      area.area_name,
-      area.area_type,
-      area.square_footage ? `${area.square_footage} sq ft` : 'N/A',
-      area.paint_color || 'N/A',
-      area.labor_hours ? `${area.labor_hours}h` : 'N/A',
-      area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
-    ]);
+    const tableData = invoice.project_areas.map(area => {
+      // Calculate labor amount (hours × rate)
+      const laborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
+      
+      return [
+        area.area_name,
+        area.area_type,
+        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
+        area.material_cost ? formatCurrency(area.material_cost) : 'N/A'
+      ];
+    });
     
     autoTable(doc, {
       startY: yPosition,
-      head: [['Area', 'Type', 'Size', 'Paint Color', 'Labor', 'Materials']],
+      head: [['Area', 'Type', 'Labour Amount', 'Material Amount']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 20 }
+        0: { cellWidth: 50 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 35 }
       },
       margin: { left: 20, right: 20 }
     });
