@@ -345,6 +345,9 @@ export class DatabaseManager {
       // Invoice sequence migration
       await this.performInvoiceSequenceMigration();
       
+      // Database cleanup migration (one-time)
+      await this.performDatabaseCleanup();
+      
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -968,6 +971,157 @@ export class DatabaseManager {
         error: (error as Error).message
       });
       console.error(`❌ Invoice sequence migration '${migrationName}' failed:`, (error as Error).message);
+    }
+  }
+
+  /**
+   * Database cleanup migration - clears all estimates and invoices for fresh start
+   * This is a one-time migration that runs only once
+   */
+  private async performDatabaseCleanup(): Promise<void> {
+    const migrationName = 'database_cleanup_fresh_start';
+    console.log(`🧹 Starting database cleanup migration: ${migrationName}`);
+    
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      console.log('⚠️  Starting fresh database cleanup...');
+      
+      // Create backup before cleanup
+      console.log('💾 Creating backup before cleanup...');
+      const backupPath = await this.createBackup(`pre_cleanup_${Date.now()}.db`);
+      if (backupPath) {
+        console.log('✅ Backup created successfully');
+      } else {
+        console.log('⚠️ Backup creation failed, but continuing...');
+      }
+      
+      // Start transaction for atomic cleanup
+      await this.run('BEGIN TRANSACTION');
+      
+      try {
+        let totalDeleted = 0;
+        
+        // 1. Delete related data first (foreign key constraints)
+        console.log('🗑️ Deleting related data...');
+        
+        // Delete payments (references invoices)
+        const paymentsResult = await this.run('DELETE FROM payments');
+        const paymentsDeleted = paymentsResult.changes || 0;
+        totalDeleted += paymentsDeleted;
+        console.log(`   • Deleted ${paymentsDeleted} payments`);
+        
+        // Delete project areas (references estimates/invoices)
+        const projectAreasResult = await this.run('DELETE FROM project_areas');
+        const projectAreasDeleted = projectAreasResult.changes || 0;
+        totalDeleted += projectAreasDeleted;
+        console.log(`   • Deleted ${projectAreasDeleted} project areas`);
+        
+        // Delete quality checkpoints (via project_areas)
+        const qualityResult = await this.run('DELETE FROM quality_checkpoints');
+        const qualityDeleted = qualityResult.changes || 0;
+        totalDeleted += qualityDeleted;
+        console.log(`   • Deleted ${qualityDeleted} quality checkpoints`);
+        
+        // Delete photos (references project_areas/quality_checkpoints)
+        const photosResult = await this.run('DELETE FROM photos WHERE project_area_id IS NOT NULL OR quality_checkpoint_id IS NOT NULL');
+        const photosDeleted = photosResult.changes || 0;
+        totalDeleted += photosDeleted;
+        console.log(`   • Deleted ${photosDeleted} project photos`);
+        
+        // Delete communications (references estimates/invoices)
+        const communicationsResult = await this.run('DELETE FROM communications WHERE estimate_id IS NOT NULL OR invoice_id IS NOT NULL');
+        const communicationsDeleted = communicationsResult.changes || 0;
+        totalDeleted += communicationsDeleted;
+        console.log(`   • Deleted ${communicationsDeleted} communications`);
+        
+        // Delete estimate revisions and change logs (if tables exist)
+        try {
+          const revisionsResult = await this.run('DELETE FROM estimate_revisions');
+          const revisionsDeleted = revisionsResult.changes || 0;
+          totalDeleted += revisionsDeleted;
+          console.log(`   • Deleted ${revisionsDeleted} estimate revisions`);
+          
+          const changeLogsResult = await this.run('DELETE FROM estimate_change_log');
+          const changeLogsDeleted = changeLogsResult.changes || 0;
+          totalDeleted += changeLogsDeleted;
+          console.log(`   • Deleted ${changeLogsDeleted} estimate change logs`);
+        } catch (error) {
+          console.log('   ℹ️ Revision tables not found (skipping)');
+        }
+        
+        // 2. Delete main tables
+        console.log('🗑️ Deleting main tables...');
+        
+        // Delete all invoices
+        const invoicesResult = await this.run('DELETE FROM invoices');
+        const invoicesDeleted = invoicesResult.changes || 0;
+        totalDeleted += invoicesDeleted;
+        console.log(`   • Deleted ${invoicesDeleted} invoices`);
+        
+        // Delete all estimates
+        const estimatesResult = await this.run('DELETE FROM estimates');
+        const estimatesDeleted = estimatesResult.changes || 0;
+        totalDeleted += estimatesDeleted;
+        console.log(`   • Deleted ${estimatesDeleted} estimates`);
+        
+        // 3. Reset sequences
+        console.log('🔄 Resetting number sequences...');
+        
+        // Reset estimate sequence to 0
+        await this.run('UPDATE number_sequences SET current_number = 0 WHERE sequence_type = ?', ['estimate']);
+        console.log('   • Reset estimate sequence to 0 (next will be EST-0001)');
+        
+        // Reset invoice sequence to 1000
+        await this.run('UPDATE number_sequences SET current_number = 1000 WHERE sequence_type = ?', ['invoice']);
+        console.log('   • Reset invoice sequence to 1000 (next will be INV-1001)');
+        
+        // 4. Reset SQLite auto-increment counters
+        console.log('🔄 Resetting auto-increment counters...');
+        try {
+          await this.run('DELETE FROM sqlite_sequence WHERE name IN (?, ?)', ['estimates', 'invoices']);
+          console.log('   • Reset auto-increment counters');
+        } catch (error) {
+          console.log('   ℹ️ Auto-increment counters not found (normal for fresh DB)');
+        }
+        
+        // Commit transaction
+        await this.run('COMMIT');
+        
+        // Mark migration as completed
+        await this.updateMigrationLog(migrationName, 'completed', {
+          totalRecordsDeleted: totalDeleted,
+          invoicesDeleted,
+          estimatesDeleted,
+          estimateSequenceReset: 0,
+          invoiceSequenceReset: 1000,
+          backupCreated: !!backupPath
+        });
+        
+        console.log('✅ Database cleanup completed successfully!');
+        console.log(`📊 Total records deleted: ${totalDeleted}`);
+        console.log('🎯 Ready for fresh data entry!');
+        
+      } catch (error) {
+        // Rollback on error
+        await this.run('ROLLBACK');
+        throw error;
+      }
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Database cleanup migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing data`);
     }
   }
 }
