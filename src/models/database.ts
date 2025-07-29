@@ -342,6 +342,9 @@ export class DatabaseManager {
       // Version control enhancement migration
       await this.performVersionControlMigration();
       
+      // Invoice sequence migration
+      await this.performInvoiceSequenceMigration();
+      
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -896,6 +899,75 @@ export class DatabaseManager {
       ]);
     } catch (error) {
       console.error('Error logging estimate change:', (error as Error).message);
+    }
+  }
+
+  /**
+   * Migration to update invoice sequence to start from 1000
+   */
+  private async performInvoiceSequenceMigration(): Promise<void> {
+    const migrationName = 'update_invoice_sequence_to_1000';
+    console.log(`🔄 Starting invoice sequence migration: ${migrationName}`);
+    
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Check current invoice sequence
+      const currentSequence = await this.get(
+        'SELECT * FROM number_sequences WHERE sequence_type = ?',
+        ['invoice']
+      );
+
+      if (!currentSequence) {
+        console.log('❌ Invoice sequence not found in database');
+        await this.updateMigrationLog(migrationName, 'failed', {
+          error: 'Invoice sequence not found'
+        });
+        return;
+      }
+
+      console.log(`📊 Current invoice sequence: ${currentSequence.current_number}`);
+
+      // Only update if the current number is less than 1000
+      if (currentSequence.current_number < 1000) {
+        await this.run(
+          'UPDATE number_sequences SET current_number = ? WHERE sequence_type = ?',
+          [1000, 'invoice']
+        );
+
+        console.log(`✅ Updated invoice sequence from ${currentSequence.current_number} to 1000`);
+        console.log('🎯 Next invoice will be: INV-1001');
+
+        // Mark migration as completed
+        await this.updateMigrationLog(migrationName, 'completed', {
+          previousValue: currentSequence.current_number,
+          newValue: 1000,
+          nextInvoice: 'INV-1001'
+        });
+      } else {
+        console.log(`ℹ️ Invoice sequence already at ${currentSequence.current_number} - no update needed`);
+        
+        // Mark migration as completed even though no change was needed
+        await this.updateMigrationLog(migrationName, 'completed', {
+          previousValue: currentSequence.current_number,
+          newValue: currentSequence.current_number,
+          message: 'No update needed - sequence already >= 1000'
+        });
+      }
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Invoice sequence migration '${migrationName}' failed:`, (error as Error).message);
     }
   }
 }
