@@ -334,7 +334,7 @@ export class DatabaseManager {
       await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
                       VALUES ('estimate', 0, 'EST-', 'EST-XXXX')`);
       await this.run(`INSERT OR IGNORE INTO number_sequences (sequence_type, current_number, prefix, format) 
-                      VALUES ('invoice', 0, 'INV-', 'INV-XXXX')`);
+                      VALUES ('invoice', 1000, 'INV-', 'INV-XXXX')`);
 
       // Enhanced database migration with comprehensive error handling
       await this.performSchemaMigration();
