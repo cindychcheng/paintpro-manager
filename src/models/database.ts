@@ -346,8 +346,8 @@ export class DatabaseManager {
       // Invoice sequence migration
       await this.performInvoiceSequenceMigration();
       
-      // Database cleanup migration (one-time)
-      await this.performDatabaseCleanup();
+      // Database cleanup migration (one-time) - DISABLED after successful cleanup
+      // await this.performDatabaseCleanup();
       
       // Labor cost field migration
       await this.performLaborCostFieldMigration();
