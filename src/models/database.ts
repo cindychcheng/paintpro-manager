@@ -203,6 +203,7 @@ export class DatabaseManager {
         number_of_coats INTEGER DEFAULT 2,
         labor_hours DECIMAL(4,2),
         labor_rate DECIMAL(6,2),
+        labor_cost DECIMAL(8,2),
         material_cost DECIMAL(8,2),
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -347,6 +348,9 @@ export class DatabaseManager {
       
       // Database cleanup migration (one-time)
       await this.performDatabaseCleanup();
+      
+      // Labor cost field migration
+      await this.performLaborCostFieldMigration();
       
       // Check existing data counts
       try {
@@ -1122,6 +1126,62 @@ export class DatabaseManager {
       });
       console.error(`❌ Database cleanup migration '${migrationName}' failed:`, (error as Error).message);
       console.log(`🔄 Continuing with existing data`);
+    }
+  }
+
+  /**
+   * Migration to add labor_cost field to project_areas table
+   */
+  private async performLaborCostFieldMigration(): Promise<void> {
+    const migrationName = 'add_labor_cost_field_to_project_areas';
+    console.log(`🔄 Starting labor cost field migration: ${migrationName}`);
+    
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Check if labor_cost column already exists
+      const tableInfo = await this.all("PRAGMA table_info(project_areas)");
+      const existingColumns = tableInfo.map((col: any) => col.name);
+      
+      if (existingColumns.includes('labor_cost')) {
+        console.log('ℹ️ labor_cost column already exists - skipping');
+        
+        // Mark migration as completed
+        await this.updateMigrationLog(migrationName, 'completed', {
+          action: 'skipped',
+          reason: 'Column already exists'
+        });
+        return;
+      }
+
+      // Add the labor_cost column
+      await this.run('ALTER TABLE project_areas ADD COLUMN labor_cost DECIMAL(8,2)');
+      
+      console.log('✅ Added labor_cost column to project_areas table');
+
+      // Mark migration as completed
+      await this.updateMigrationLog(migrationName, 'completed', {
+        action: 'added_column',
+        column: 'labor_cost',
+        table: 'project_areas'
+      });
+
+      console.log(`✅ Labor cost field migration '${migrationName}' completed successfully`);
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Labor cost field migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing schema`);
     }
   }
 }

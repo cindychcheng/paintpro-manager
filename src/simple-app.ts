@@ -346,7 +346,8 @@ app.post('/api/estimates', async (req, res) => {
     let totalMaterialCost = 0;
 
     for (const area of project_areas) {
-      const laborCost = (area.labor_hours || 0) * (area.labor_rate || 0);
+      // Use direct labor cost if provided, otherwise calculate from hours × rate
+      const laborCost = area.labor_cost || ((area.labor_hours || 0) * (area.labor_rate || 0));
       const materialCost = area.material_cost || 0;
       totalLaborCost += laborCost;
       totalMaterialCost += materialCost;
@@ -409,9 +410,9 @@ app.post('/api/estimates', async (req, res) => {
         INSERT INTO project_areas (
           estimate_id, area_name, area_type, surface_type, square_footage,
           ceiling_height, prep_requirements, paint_type, paint_brand, paint_color,
-          finish_type, number_of_coats, labor_hours, labor_rate, material_cost, notes
+          finish_type, number_of_coats, labor_hours, labor_rate, labor_cost, material_cost, notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         estimateId,
         area.area_name,
@@ -427,6 +428,7 @@ app.post('/api/estimates', async (req, res) => {
         area.number_of_coats || 2,
         area.labor_hours || null,
         area.labor_rate || null,
+        area.labor_cost || null,
         area.material_cost || null,
         area.notes || null
       ]);
@@ -1196,7 +1198,8 @@ app.patch('/api/estimates/:id', async (req, res) => {
       let totalMaterialCost = 0;
       
       for (const area of project_areas) {
-        const laborCost = (area.labor_hours || 0) * (area.labor_rate || 45);
+        // Use direct labor cost if provided, otherwise calculate from hours × rate
+        const laborCost = area.labor_cost || ((area.labor_hours || 0) * (area.labor_rate || 45));
         const materialCost = area.material_cost || 0;
         
         totalLaborCost += laborCost;
@@ -1207,14 +1210,14 @@ app.patch('/api/estimates/:id', async (req, res) => {
             estimate_id, area_name, area_type, surface_type, square_footage, 
             ceiling_height, prep_requirements, paint_type, paint_brand, 
             paint_color, finish_type, number_of_coats, labor_hours, 
-            labor_rate, material_cost, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            labor_rate, labor_cost, material_cost, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           id, area.area_name, area.area_type || 'indoor', area.surface_type || 'drywall',
           area.square_footage || 0, area.ceiling_height || 8, area.prep_requirements || '',
           area.paint_type || 'Latex', area.paint_brand || 'Benjamin Moore', area.paint_color || '',
           area.finish_type || 'Eggshell', area.number_of_coats || 2, area.labor_hours || 0,
-          area.labor_rate || 45, area.material_cost || 0, area.notes || ''
+          area.labor_rate || 45, area.labor_cost || null, area.material_cost || 0, area.notes || ''
         ]);
       }
       
@@ -1309,9 +1312,9 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
         INSERT INTO project_areas (
           invoice_id, area_name, area_type, surface_type, square_footage,
           ceiling_height, prep_requirements, paint_type, paint_brand, paint_color,
-          finish_type, number_of_coats, labor_hours, labor_rate, material_cost, notes
+          finish_type, number_of_coats, labor_hours, labor_rate, labor_cost, material_cost, notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         invoiceId,
         area.area_name,
@@ -1327,6 +1330,7 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
         area.number_of_coats,
         area.labor_hours,
         area.labor_rate,
+        area.labor_cost,
         area.material_cost,
         area.notes
       ]);
