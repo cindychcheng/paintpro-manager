@@ -1582,6 +1582,55 @@ app.delete('/api/payments/:id', async (req, res) => {
   }
 });
 
+// TEMPORARY ADMIN ENDPOINT - Remove after cleaning up payments
+app.delete('/api/admin/cleanup-payments', async (req, res) => {
+  try {
+    // Find payments with specific amounts (499.97 and 0.02)
+    const paymentsToDelete = await db.all(`
+      SELECT p.id, p.amount, p.invoice_id, i.invoice_number
+      FROM payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      WHERE p.amount IN (499.97, 0.02)
+    `);
+
+    if (paymentsToDelete.length === 0) {
+      return res.json({ success: true, message: 'No payments found with amounts 499.97 or 0.02' });
+    }
+
+    // Delete each payment and update invoice totals
+    for (const payment of paymentsToDelete) {
+      // Get current invoice
+      const invoice = await db.get('SELECT * FROM invoices WHERE id = ?', [payment.invoice_id]);
+
+      // Delete payment
+      await db.run('DELETE FROM payments WHERE id = ?', [payment.id]);
+
+      // Update invoice paid amount
+      const newPaidAmount = invoice.paid_amount - payment.amount;
+      await db.run('UPDATE invoices SET paid_amount = ? WHERE id = ?', [newPaidAmount, payment.invoice_id]);
+
+      // Update invoice status if needed
+      if (newPaidAmount < invoice.total_amount && invoice.status === 'paid') {
+        await db.run('UPDATE invoices SET status = "sent" WHERE id = ?', [payment.invoice_id]);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Deleted ${paymentsToDelete.length} payments`,
+      deletedPayments: paymentsToDelete.map(p => ({
+        id: p.id,
+        amount: p.amount,
+        invoice: p.invoice_number
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error cleaning up payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to cleanup payments' });
+  }
+});
+
 // Company Settings endpoints
 app.get('/api/company-settings', async (req, res) => {
   try {
