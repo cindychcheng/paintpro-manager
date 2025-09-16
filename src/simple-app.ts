@@ -1687,6 +1687,59 @@ app.put('/api/payments/:id', async (req, res) => {
   }
 });
 
+// TEMPORARY ADMIN ENDPOINT - Check database persistence
+app.get('/api/admin/check-persistence', async (req, res) => {
+  try {
+    const [invoiceCount, paymentCount, clientCount] = await Promise.all([
+      db.get('SELECT COUNT(*) as count FROM invoices'),
+      db.get('SELECT COUNT(*) as count FROM payments'),
+      db.get('SELECT COUNT(*) as count FROM clients')
+    ]);
+
+    const recentInvoices = await db.all(`
+      SELECT id, invoice_number, client_id, title, status, total_amount, paid_amount, created_at
+      FROM invoices
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+
+    const recentPayments = await db.all(`
+      SELECT p.id, p.invoice_id, p.amount, p.payment_method, p.payment_date, p.reference_number, i.invoice_number
+      FROM payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      ORDER BY p.created_at DESC
+      LIMIT 5
+    `);
+
+    const dbPath = require('path').resolve(process.env.NODE_ENV === 'production'
+      ? (process.env.RAILWAY_VOLUME_MOUNT_PATH ? `${process.env.RAILWAY_VOLUME_MOUNT_PATH}/painting_business.db` : '/tmp/painting_business.db')
+      : './painting_business.db'
+    );
+
+    res.json({
+      success: true,
+      persistence: {
+        database_path: dbPath,
+        volume_mount_path: process.env.RAILWAY_VOLUME_MOUNT_PATH || 'not set',
+        environment: process.env.NODE_ENV || 'development'
+      },
+      counts: {
+        invoices: invoiceCount.count,
+        payments: paymentCount.count,
+        clients: clientCount.count
+      },
+      recent_data: {
+        invoices: recentInvoices,
+        payments: recentPayments
+      }
+    });
+
+  } catch (error) {
+    console.error('Error checking persistence:', error);
+    res.status(500).json({ success: false, error: 'Failed to check persistence' });
+  }
+});
+
 // TEMPORARY ADMIN ENDPOINT - Remove after cleaning up payments
 app.delete('/api/admin/cleanup-payments', async (req, res) => {
   try {
