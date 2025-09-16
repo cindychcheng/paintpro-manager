@@ -6,3 +6,4 @@ startCommand = "npm start"
 
 [deploy.env]
 NODE_ENV = "production"
+# Persistent storage configured with 5GB volume
