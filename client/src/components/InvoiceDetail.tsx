@@ -492,6 +492,7 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
       />
     )}
   </>
+  );
 };
 
 export default InvoiceDetail;
