@@ -1585,6 +1585,108 @@ app.delete('/api/payments/:id', async (req, res) => {
   }
 });
 
+// Update payment
+app.put('/api/payments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      amount,
+      payment_method,
+      payment_date,
+      reference_number,
+      notes
+    } = req.body;
+
+    // Get current payment details
+    const currentPayment = await db.get('SELECT * FROM payments WHERE id = ?', [id]);
+    if (!currentPayment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Get invoice details
+    const invoice = await db.get('SELECT * FROM invoices WHERE id = ?', [currentPayment.invoice_id]);
+    if (!invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // Validate new amount if it's being changed
+    if (amount !== undefined && amount !== currentPayment.amount) {
+      const roundCurrency = (amount: number): number => Math.round(amount * 100) / 100;
+
+      // Calculate what the new outstanding would be
+      const currentOutstanding = invoice.total_amount - invoice.paid_amount;
+      const amountDifference = roundCurrency(parseFloat(amount)) - currentPayment.amount;
+      const newOutstanding = currentOutstanding + amountDifference;
+
+      if (newOutstanding < 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Payment amount would exceed invoice total. Maximum allowed: $${(currentPayment.amount + currentOutstanding).toFixed(2)}`
+        });
+      }
+    }
+
+    // Update payment
+    const updates = [];
+    const values = [];
+
+    if (amount !== undefined) {
+      updates.push('amount = ?');
+      values.push(parseFloat(amount));
+    }
+    if (payment_method !== undefined) {
+      updates.push('payment_method = ?');
+      values.push(payment_method);
+    }
+    if (payment_date !== undefined) {
+      updates.push('payment_date = ?');
+      values.push(payment_date);
+    }
+    if (reference_number !== undefined) {
+      updates.push('reference_number = ?');
+      values.push(reference_number);
+    }
+    if (notes !== undefined) {
+      updates.push('notes = ?');
+      values.push(notes);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    values.push(id); // for WHERE clause
+    await db.run(`UPDATE payments SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    // Update invoice paid amount if payment amount changed
+    if (amount !== undefined && amount !== currentPayment.amount) {
+      const amountDifference = parseFloat(amount) - currentPayment.amount;
+      const newPaidAmount = invoice.paid_amount + amountDifference;
+      await db.run('UPDATE invoices SET paid_amount = ? WHERE id = ?', [newPaidAmount, currentPayment.invoice_id]);
+
+      // Update invoice status
+      if (newPaidAmount >= invoice.total_amount) {
+        await db.run('UPDATE invoices SET status = "paid" WHERE id = ?', [currentPayment.invoice_id]);
+      } else if (newPaidAmount < invoice.total_amount && invoice.status === 'paid') {
+        await db.run('UPDATE invoices SET status = "sent" WHERE id = ?', [currentPayment.invoice_id]);
+      }
+    }
+
+    // Get updated payment
+    const updatedPayment = await db.get('SELECT * FROM payments WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      data: updatedPayment,
+      message: 'Payment updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    res.status(500).json({ success: false, error: 'Failed to update payment' });
+  }
+});
+
 // TEMPORARY ADMIN ENDPOINT - Remove after cleaning up payments
 app.delete('/api/admin/cleanup-payments', async (req, res) => {
   try {

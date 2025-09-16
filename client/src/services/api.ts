@@ -346,6 +346,16 @@ class ApiService {
     return this.request(`/invoices/${invoiceId}/payments`);
   }
 
+  async updatePayment(
+    paymentId: number,
+    paymentData: Partial<RecordPaymentRequest>
+  ): Promise<ApiResponse<Payment>> {
+    return this.request(`/payments/${paymentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
   async deletePayment(paymentId: number): Promise<ApiResponse> {
     return this.request(`/payments/${paymentId}`, {
       method: 'DELETE',

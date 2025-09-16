@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download, Send, CheckCircle, RefreshCw, Edit } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download, Send, CheckCircle, RefreshCw, Edit, Trash2, Edit2 } from 'lucide-react';
 import { useInvoice } from '../hooks/useInvoices';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import InvoiceEdit from './InvoiceEdit';
-import { Invoice } from '../services/api';
+import PaymentEditForm from './PaymentEditForm';
+import { Invoice, Payment, RecordPaymentRequest, apiService } from '../services/api';
 
 interface InvoiceDetailProps {
   invoiceId: number;
@@ -14,6 +15,7 @@ interface InvoiceDetailProps {
 const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initialEditMode = false }) => {
   const { invoice, loading, error, refetch } = useInvoice(invoiceId);
   const [isEditing, setIsEditing] = useState(initialEditMode);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -34,6 +36,36 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'cancelled': return 'bg-gray-100 text-gray-600';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+  };
+
+  const handleUpdatePayment = async (paymentData: Partial<RecordPaymentRequest>) => {
+    if (!editingPayment) return false;
+
+    try {
+      await apiService.updatePayment(editingPayment.id, paymentData);
+      await refetch(); // Refresh the invoice data
+      setEditingPayment(null);
+      return true;
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      return false;
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: number) => {
+    if (!confirm('Are you sure you want to delete this payment?')) return;
+
+    try {
+      await apiService.deletePayment(paymentId);
+      await refetch(); // Refresh the invoice data
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      alert('Failed to delete payment. Please try again.');
     }
   };
 
@@ -123,6 +155,7 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -344,6 +377,22 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
                         </div>
                       )}
                     </div>
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleEditPayment(payment)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Edit payment"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePayment(payment.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete payment"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -433,7 +482,16 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
         )}
       </div>
     </div>
-  );
+
+    {/* Payment Edit Form Modal */}
+    {editingPayment && (
+      <PaymentEditForm
+        payment={editingPayment}
+        onSave={handleUpdatePayment}
+        onCancel={() => setEditingPayment(null)}
+      />
+    )}
+  </>
 };
 
 export default InvoiceDetail;
