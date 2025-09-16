@@ -1485,12 +1485,15 @@ app.post('/api/invoices/:id/payments', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
 
-    // Validate payment amount
-    const outstanding = invoice.total_amount - invoice.paid_amount;
-    if (amount > outstanding) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Payment amount ($${amount}) exceeds outstanding balance ($${outstanding.toFixed(2)})` 
+    // Validate payment amount with proper floating-point handling
+    const roundCurrency = (amount: number): number => Math.round(amount * 100) / 100;
+    const outstanding = roundCurrency(invoice.total_amount - invoice.paid_amount);
+    const paymentAmount = roundCurrency(parseFloat(amount));
+
+    if (paymentAmount > outstanding) {
+      return res.status(400).json({
+        success: false,
+        error: `Payment amount ($${paymentAmount.toFixed(2)}) exceeds outstanding balance ($${outstanding.toFixed(2)})`
       });
     }
 
