@@ -9,8 +9,15 @@ interface PaymentFormProps {
 }
 
 const PaymentForm: React.FC<PaymentFormProps> = ({ invoice, onSave, onCancel }) => {
+  // Utility function to handle currency precision
+  const roundCurrency = (amount: number): number => {
+    return Math.round(amount * 100) / 100;
+  };
+
+  const outstandingAmount = roundCurrency(invoice.total_amount - invoice.paid_amount);
+
   const [formData, setFormData] = useState<RecordPaymentRequest>({
-    amount: invoice.total_amount - invoice.paid_amount, // Default to outstanding amount
+    amount: outstandingAmount, // Default to rounded outstanding amount
     payment_method: 'Check',
     payment_date: new Date().toISOString().split('T')[0], // Today's date
     reference_number: '',
@@ -19,13 +26,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ invoice, onSave, onCancel }) 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Utility function to handle currency precision
-  const roundCurrency = (amount: number): number => {
-    return Math.round(amount * 100) / 100;
-  };
-
-  const outstandingAmount = roundCurrency(invoice.total_amount - invoice.paid_amount);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
