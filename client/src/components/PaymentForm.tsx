@@ -20,7 +20,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ invoice, onSave, onCancel }) 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const outstandingAmount = invoice.total_amount - invoice.paid_amount;
+  // Utility function to handle currency precision
+  const roundCurrency = (amount: number): number => {
+    return Math.round(amount * 100) / 100;
+  };
+
+  const outstandingAmount = roundCurrency(invoice.total_amount - invoice.paid_amount);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -122,7 +127,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ invoice, onSave, onCancel }) 
                     errors.amount ? 'border-red-300' : 'border-gray-300'
                   }`}
                   min="0"
-                  max={outstandingAmount}
                   step="0.01"
                   placeholder="0.00"
                 />
