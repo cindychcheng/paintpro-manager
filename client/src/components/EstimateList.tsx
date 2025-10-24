@@ -258,6 +258,17 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Created</p>
+                  <p className="text-slate-600 text-sm">{formatDate(estimate.created_at)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Last Updated</p>
+                  <p className="text-slate-600 text-sm">{formatDate(estimate.updated_at)}</p>
+                </div>
+              </div>
             </div>
 
             {/* Card Actions */}
