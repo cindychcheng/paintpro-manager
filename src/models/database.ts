@@ -373,6 +373,9 @@ export class DatabaseManager {
       // Invoice void functionality migration
       await this.performInvoiceVoidMigration();
 
+      // Populate labor_cost from labor_hours * labor_rate for existing records
+      await this.performLaborCostDataMigration();
+
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -1272,6 +1275,52 @@ export class DatabaseManager {
       });
       console.error(`❌ Invoice void migration '${migrationName}' failed:`, (error as Error).message);
       console.log(`🔄 Continuing with existing schema`);
+    }
+  }
+
+  /**
+   * Migration to populate labor_cost from labor_hours * labor_rate for existing records
+   */
+  private async performLaborCostDataMigration(): Promise<void> {
+    const migrationName = 'populate_labor_cost_from_hours_rate';
+    console.log(`🔄 Starting labor cost data migration: ${migrationName}`);
+
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Update all project_areas where labor_cost is NULL but labor_hours and labor_rate exist
+      const result = await this.run(`
+        UPDATE project_areas
+        SET labor_cost = labor_hours * labor_rate
+        WHERE labor_cost IS NULL
+          AND labor_hours IS NOT NULL
+          AND labor_rate IS NOT NULL
+      `);
+
+      console.log(`✅ Updated ${result.changes} project areas with calculated labor_cost`);
+
+      // Mark migration as completed
+      await this.updateMigrationLog(migrationName, 'completed', {
+        action: 'updated_records',
+        records_updated: result.changes
+      });
+
+      console.log(`✅ Labor cost data migration '${migrationName}' completed successfully`);
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Labor cost data migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing without populating labor_cost`);
     }
   }
 }
