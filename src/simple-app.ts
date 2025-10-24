@@ -1571,7 +1571,11 @@ app.patch('/api/invoices/:id', async (req, res) => {
           const currentArea = currentAreas.find(a => a.id === area.id);
           if (currentArea) {
             // Check if anything changed
-            const fieldsToCheck = ['area_name', 'labor_cost', 'material_cost', 'paint_color', 'notes'];
+            const fieldsToCheck = [
+              'area_name', 'area_type', 'surface_type', 'square_footage', 'ceiling_height',
+              'prep_requirements', 'paint_type', 'paint_brand', 'paint_color', 'finish_type',
+              'number_of_coats', 'labor_cost', 'material_cost', 'notes'
+            ];
             let hasChanges = false;
 
             for (const field of fieldsToCheck) {
@@ -1669,6 +1673,10 @@ app.patch('/api/invoices/:id', async (req, res) => {
       LEFT JOIN estimates e ON i.estimate_id = e.id
       WHERE i.id = ?
     `, [id]);
+
+    // Fetch updated project areas
+    const updatedProjectAreas = await db.all('SELECT * FROM project_areas WHERE invoice_id = ? ORDER BY id', [id]);
+    updatedInvoice.project_areas = updatedProjectAreas;
 
     res.json({
       success: true,
