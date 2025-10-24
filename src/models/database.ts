@@ -307,6 +307,22 @@ export class DatabaseManager {
         FOREIGN KEY (invoice_id) REFERENCES invoices (id)
       )`,
 
+      // Invoice change log for tracking edits to draft invoices
+      `CREATE TABLE IF NOT EXISTS invoice_change_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        invoice_id INTEGER NOT NULL,
+        change_type TEXT NOT NULL CHECK (change_type IN ('field_update', 'project_area_added', 'project_area_removed', 'project_area_updated')),
+        field_name TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        project_area_id INTEGER,
+        project_area_name TEXT,
+        change_description TEXT,
+        changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (invoice_id) REFERENCES invoices (id),
+        FOREIGN KEY (project_area_id) REFERENCES project_areas (id)
+      )`,
+
       // Sequence tracking for estimate/invoice numbers
       `CREATE TABLE IF NOT EXISTS number_sequences (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

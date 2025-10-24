@@ -1464,57 +1464,193 @@ app.patch('/api/invoices/:id', async (req, res) => {
     const {
       title,
       description,
-      total_amount,
       due_date,
       payment_terms,
-      terms_and_notes
+      terms_and_notes,
+      created_at,
+      project_areas
     } = req.body;
 
+    // Get current invoice to check status and track changes
+    const currentInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
+
+    if (!currentInvoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // Only allow editing draft invoices
+    if (currentInvoice.status !== 'draft') {
+      return res.status(400).json({
+        success: false,
+        error: 'Only draft invoices can be edited. Sent invoices can only be voided or have payments recorded.'
+      });
+    }
+
     // Validation
-    if (!title || title.trim() === '') {
+    if (title !== undefined && title.trim() === '') {
       return res.status(400).json({ success: false, error: 'Title is required' });
     }
 
-    if (total_amount !== undefined && total_amount <= 0) {
-      return res.status(400).json({ success: false, error: 'Total amount must be greater than 0' });
-    }
+    // Track changes for change log
+    const logChange = async (field_name: string, old_value: any, new_value: any) => {
+      if (old_value !== new_value) {
+        await db.run(`
+          INSERT INTO invoice_change_log (invoice_id, change_type, field_name, old_value, new_value, change_description)
+          VALUES (?, 'field_update', ?, ?, ?, ?)
+        `, [
+          id,
+          field_name,
+          old_value != null ? String(old_value) : null,
+          new_value != null ? String(new_value) : null,
+          `Changed ${field_name} from "${old_value}" to "${new_value}"`
+        ]);
+      }
+    };
 
     // Build dynamic update query
     const updates = [];
     const values = [];
 
-    if (title !== undefined) {
+    if (title !== undefined && title !== currentInvoice.title) {
+      await logChange('title', currentInvoice.title, title);
       updates.push('title = ?');
       values.push(title);
     }
-    if (description !== undefined) {
+    if (description !== undefined && description !== currentInvoice.description) {
+      await logChange('description', currentInvoice.description, description);
       updates.push('description = ?');
       values.push(description);
     }
-    if (total_amount !== undefined) {
-      updates.push('total_amount = ?');
-      values.push(total_amount);
-    }
-    if (due_date !== undefined) {
+    if (due_date !== undefined && due_date !== currentInvoice.due_date) {
+      await logChange('due_date', currentInvoice.due_date, due_date);
       updates.push('due_date = ?');
       values.push(due_date || null);
     }
-    if (payment_terms !== undefined) {
+    if (payment_terms !== undefined && payment_terms !== currentInvoice.payment_terms) {
+      await logChange('payment_terms', currentInvoice.payment_terms, payment_terms);
       updates.push('payment_terms = ?');
       values.push(payment_terms);
     }
-    if (terms_and_notes !== undefined) {
+    if (terms_and_notes !== undefined && terms_and_notes !== currentInvoice.terms_and_notes) {
+      await logChange('terms_and_notes', currentInvoice.terms_and_notes, terms_and_notes);
       updates.push('terms_and_notes = ?');
       values.push(terms_and_notes);
     }
+    if (created_at !== undefined && created_at !== currentInvoice.created_at) {
+      await logChange('created_at', currentInvoice.created_at, created_at);
+      updates.push('created_at = ?');
+      values.push(created_at);
+    }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(id);
+    // Handle project areas updates
+    if (project_areas && Array.isArray(project_areas)) {
+      // Get current project areas
+      const currentAreas = await db.all('SELECT * FROM project_areas WHERE invoice_id = ? ORDER BY id', [id]);
 
-    await db.run(`UPDATE invoices SET ${updates.join(', ')} WHERE id = ?`, values);
-    
+      // Track which areas were updated, added, or removed
+      const currentAreaIds = new Set(currentAreas.map(a => a.id));
+      const newAreaIds = new Set(project_areas.filter(a => a.id).map(a => a.id));
+
+      // Calculate new total
+      let totalLabor = 0;
+      let totalMaterial = 0;
+
+      for (const area of project_areas) {
+        totalLabor += area.labor_cost || 0;
+        totalMaterial += area.material_cost || 0;
+
+        if (area.id) {
+          // Update existing area
+          const currentArea = currentAreas.find(a => a.id === area.id);
+          if (currentArea) {
+            // Check if anything changed
+            const fieldsToCheck = ['area_name', 'labor_cost', 'material_cost', 'paint_color', 'notes'];
+            let hasChanges = false;
+
+            for (const field of fieldsToCheck) {
+              if (area[field] !== currentArea[field]) {
+                hasChanges = true;
+                break;
+              }
+            }
+
+            if (hasChanges) {
+              // Log the change
+              await db.run(`
+                INSERT INTO invoice_change_log (invoice_id, change_type, project_area_id, project_area_name, change_description)
+                VALUES (?, 'project_area_updated', ?, ?, ?)
+              `, [
+                id,
+                area.id,
+                area.area_name,
+                `Updated project area "${area.area_name}"`
+              ]);
+
+              // Update the area
+              await db.run(`
+                UPDATE project_areas
+                SET area_name = ?, area_type = ?, surface_type = ?, square_footage = ?, ceiling_height = ?,
+                    prep_requirements = ?, paint_type = ?, paint_brand = ?, paint_color = ?, finish_type = ?,
+                    number_of_coats = ?, labor_cost = ?, material_cost = ?, notes = ?
+                WHERE id = ?
+              `, [
+                area.area_name, area.area_type, area.surface_type, area.square_footage, area.ceiling_height,
+                area.prep_requirements, area.paint_type, area.paint_brand, area.paint_color, area.finish_type,
+                area.number_of_coats, area.labor_cost, area.material_cost, area.notes, area.id
+              ]);
+            }
+          }
+        } else {
+          // Add new area
+          await db.run(`
+            INSERT INTO invoice_change_log (invoice_id, change_type, project_area_name, change_description)
+            VALUES (?, 'project_area_added', ?, ?)
+          `, [id, area.area_name, `Added project area "${area.area_name}"`]);
+
+          const result = await db.run(`
+            INSERT INTO project_areas (
+              invoice_id, area_name, area_type, surface_type, square_footage, ceiling_height,
+              prep_requirements, paint_type, paint_brand, paint_color, finish_type, number_of_coats,
+              labor_cost, material_cost, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            id, area.area_name, area.area_type, area.surface_type, area.square_footage, area.ceiling_height,
+            area.prep_requirements, area.paint_type, area.paint_brand, area.paint_color, area.finish_type,
+            area.number_of_coats, area.labor_cost, area.material_cost, area.notes
+          ]);
+        }
+      }
+
+      // Remove areas that are no longer in the list
+      for (const currentArea of currentAreas) {
+        if (!newAreaIds.has(currentArea.id)) {
+          await db.run(`
+            INSERT INTO invoice_change_log (invoice_id, change_type, project_area_id, project_area_name, change_description)
+            VALUES (?, 'project_area_removed', ?, ?, ?)
+          `, [id, currentArea.id, currentArea.area_name, `Removed project area "${currentArea.area_name}"`]);
+
+          await db.run('DELETE FROM project_areas WHERE id = ?', [currentArea.id]);
+        }
+      }
+
+      // Update total amount
+      const newTotal = totalLabor + totalMaterial;
+      if (newTotal !== currentInvoice.total_amount) {
+        await logChange('total_amount', currentInvoice.total_amount, newTotal);
+        updates.push('total_amount = ?');
+        values.push(newTotal);
+      }
+    }
+
+    // Apply updates if there are any
+    if (updates.length > 0) {
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(id);
+      await db.run(`UPDATE invoices SET ${updates.join(', ')} WHERE id = ?`, values);
+    }
+
     const updatedInvoice = await db.get(`
-      SELECT 
+      SELECT
         i.*,
         c.name as client_name,
         c.email as client_email,
@@ -1527,10 +1663,6 @@ app.patch('/api/invoices/:id', async (req, res) => {
       WHERE i.id = ?
     `, [id]);
 
-    if (!updatedInvoice) {
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
-    }
-
     res.json({
       success: true,
       data: updatedInvoice,
@@ -1539,6 +1671,27 @@ app.patch('/api/invoices/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating invoice:', error);
     res.status(500).json({ success: false, error: 'Failed to update invoice' });
+  }
+});
+
+// Get invoice change log
+app.get('/api/invoices/:id/changelog', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const changelog = await db.all(`
+      SELECT * FROM invoice_change_log
+      WHERE invoice_id = ?
+      ORDER BY changed_at DESC
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: changelog
+    });
+  } catch (error) {
+    console.error('Error fetching invoice change log:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch change log' });
   }
 });
 
