@@ -239,7 +239,7 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
                 <h3 className="text-xl font-bold text-slate-800 mb-1">{estimate.estimate_number}</h3>
                 <p className="text-slate-600 text-sm line-clamp-2">{estimate.title}</p>
               </div>
-              <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(estimate.status).replace('bg-', 'bg-gradient-to-r from-').replace(' text-', ' to-').replace('-100', '-200')} text-white shadow-lg`}>
+              <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(estimate.status)} shadow-lg`}>
                 {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
               </span>
             </div>
@@ -256,13 +256,6 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
                   <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     {formatCurrency(estimate.total_amount)}
                   </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Status</p>
-                <div className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(estimate.status)}`}>
-                  {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
                 </div>
               </div>
             </div>
