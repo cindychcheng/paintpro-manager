@@ -29,12 +29,27 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
   };
 
   const formatDate = (dateString: string) => {
-    // If dateString already has time component (contains 'T'), use it as-is
-    // Otherwise, add T00:00:00 to treat it as local time
-    const date = dateString.includes('T')
-      ? new Date(dateString)
-      : new Date(dateString + 'T00:00:00');
-    return date.toLocaleDateString();
+    if (!dateString) return 'N/A';
+
+    try {
+      // SQLite datetime format: "YYYY-MM-DD HH:MM:SS" (space-separated)
+      // If it has a space, it's SQLite format - replace space with 'T'
+      let dateStr = dateString;
+      if (dateStr.includes(' ') && !dateStr.includes('T')) {
+        dateStr = dateStr.replace(' ', 'T');
+      }
+
+      // If dateString already has time component (contains 'T'), use it as-is
+      // Otherwise, add T00:00:00 to treat it as local time
+      const date = dateStr.includes('T')
+        ? new Date(dateStr)
+        : new Date(dateStr + 'T00:00:00');
+
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid Date';
+    }
   };
 
   const getStatusColor = (status: string) => {
