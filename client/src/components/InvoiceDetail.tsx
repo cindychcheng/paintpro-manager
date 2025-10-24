@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download, Send, CheckCircle, RefreshCw, Edit, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, DollarSign, FileText, User, CreditCard, Download, Send, CheckCircle, RefreshCw, Edit, Trash2, Edit2, XCircle } from 'lucide-react';
 import { useInvoice } from '../hooks/useInvoices';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import InvoiceEdit from './InvoiceEdit';
 import PaymentEditForm from './PaymentEditForm';
+import PaymentForm from './PaymentForm';
 import { Invoice, Payment, RecordPaymentRequest, apiService } from '../services/api';
 
 interface InvoiceDetailProps {
@@ -16,6 +17,9 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
   const { invoice, loading, error, refetch } = useInvoice(invoiceId);
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -35,6 +39,7 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
       case 'paid': return 'bg-green-100 text-green-800';
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'cancelled': return 'bg-gray-100 text-gray-600';
+      case 'void': return 'bg-gray-300 text-gray-700';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -92,6 +97,32 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
   const handleSaveEdit = (updatedInvoice: Invoice) => {
     setIsEditing(false);
     refetch(); // Refresh the invoice data
+  };
+
+  const handleRecordPayment = async (paymentData: RecordPaymentRequest) => {
+    try {
+      await apiService.recordPayment(invoiceId, paymentData);
+      await refetch();
+      setShowPaymentForm(false);
+      return true;
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      return false;
+    }
+  };
+
+  const handleVoidInvoice = async () => {
+    if (!voidReason.trim()) return;
+
+    try {
+      await apiService.voidInvoice(invoiceId, voidReason.trim());
+      await refetch();
+      setShowVoidModal(false);
+      setVoidReason('');
+    } catch (error) {
+      console.error('Error voiding invoice:', error);
+      alert('Failed to void invoice. Please try again.');
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -216,6 +247,28 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
             >
               <Edit size={18} />
               Edit
+            </button>
+          )}
+
+          {/* Record Payment Button */}
+          {outstandingAmount > 0 && invoice.status !== 'paid' && invoice.status !== 'void' && (
+            <button
+              onClick={() => setShowPaymentForm(true)}
+              className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              <DollarSign size={18} />
+              Record Payment
+            </button>
+          )}
+
+          {/* Void Invoice Button */}
+          {(invoice.status === 'draft' || invoice.status === 'sent') && (
+            <button
+              onClick={() => setShowVoidModal(true)}
+              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              <XCircle size={18} />
+              Void Invoice
             </button>
           )}
 
@@ -490,6 +543,71 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
         onSave={handleUpdatePayment}
         onCancel={() => setEditingPayment(null)}
       />
+    )}
+
+    {/* Payment Form Modal */}
+    {showPaymentForm && (
+      <PaymentForm
+        invoice={invoice}
+        onSubmit={handleRecordPayment}
+        onCancel={() => setShowPaymentForm(false)}
+      />
+    )}
+
+    {/* Void Invoice Modal */}
+    {showVoidModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+              <XCircle className="text-red-600" size={24} />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-800">Void Invoice</h3>
+          </div>
+
+          <p className="text-slate-600 mb-4">
+            Are you sure you want to void invoice <strong>{invoice.invoice_number || `Draft #${invoice.id}`}</strong>?
+          </p>
+
+          <p className="text-sm text-slate-500 mb-6">
+            This action will mark the invoice as void and revert the associated estimate back to approved status.
+            The invoice number will not be reused.
+          </p>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Reason for voiding <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g., Project cancelled, Duplicate invoice, Client changed requirements..."
+              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              rows={3}
+              required
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowVoidModal(false);
+                setVoidReason('');
+              }}
+              className="flex-1 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleVoidInvoice}
+              disabled={!voidReason.trim()}
+              className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Void Invoice
+            </button>
+          </div>
+        </div>
+      </div>
     )}
   </>
   );
