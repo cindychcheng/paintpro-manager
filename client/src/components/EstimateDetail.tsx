@@ -342,10 +342,6 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
               <span className="text-sm font-medium text-gray-500">Revision</span>
               <div className="text-gray-900">#{estimate.revision_number}</div>
             </div>
-            <div>
-              <span className="text-sm font-medium text-gray-500">Markup</span>
-              <div className="text-gray-900">{estimate.markup_percentage}%</div>
-            </div>
           </div>
           {estimate.description && (
             <div className="mt-4">
@@ -361,7 +357,7 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
             <DollarSign className="text-blue-600" size={20} />
             Cost Breakdown
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <span className="text-sm font-medium text-gray-500">Labor Cost</span>
               <div className="text-xl font-bold text-blue-600">{formatCurrency(estimate.labor_cost)}</div>
@@ -369,12 +365,6 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
             <div className="bg-blue-50 p-4 rounded-lg">
               <span className="text-sm font-medium text-gray-500">Material Cost</span>
               <div className="text-xl font-bold text-blue-600">{formatCurrency(estimate.material_cost)}</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <span className="text-sm font-medium text-gray-500">Markup ({estimate.markup_percentage}%)</span>
-              <div className="text-xl font-bold text-blue-600">
-                {formatCurrency((estimate.labor_cost + estimate.material_cost) * (estimate.markup_percentage / 100))}
-              </div>
             </div>
             <div className="bg-blue-100 p-4 rounded-lg border-2 border-blue-200">
               <span className="text-sm font-medium text-gray-500">Total Amount</span>

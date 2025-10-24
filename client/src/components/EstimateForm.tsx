@@ -125,10 +125,9 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
       totalMaterial += area.material_cost;
     });
 
-    const markup = (totalLabor + totalMaterial) * ((formData.markup_percentage || 0) / 100);
-    const total = totalLabor + totalMaterial + markup;
+    const total = totalLabor + totalMaterial;
 
-    return { totalLabor, totalMaterial, markup, total };
+    return { totalLabor, totalMaterial, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,7 +162,7 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
     }
   };
 
-  const { totalLabor, totalMaterial, markup, total } = calculateTotals();
+  const { totalLabor, totalMaterial, total } = calculateTotals();
 
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
@@ -279,22 +278,6 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                 rows={4}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Detailed description of the project..."
-              />
-            </div>
-            
-            <div className="sm:max-w-xs">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Markup Percentage (%)
-              </label>
-              <input
-                type="number"
-                value={formData.markup_percentage}
-                onChange={(e) => setFormData(prev => ({ ...prev, markup_percentage: parseFloat(e.target.value) || 0 }))}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-base sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min="0"
-                max="100"
-                step="0.1"
-                inputMode="decimal"
               />
             </div>
           </div>
@@ -551,10 +534,6 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-sm text-gray-600">Material Cost</div>
               <div className="text-xl font-bold text-gray-900">${totalMaterial.toFixed(2)}</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600">Markup ({formData.markup_percentage}%)</div>
-              <div className="text-xl font-bold text-gray-900">${markup.toFixed(2)}</div>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
               <div className="text-sm text-blue-600 font-medium">Total Amount</div>
