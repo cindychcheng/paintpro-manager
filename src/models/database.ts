@@ -376,6 +376,9 @@ export class DatabaseManager {
       // Populate labor_cost from labor_hours * labor_rate for existing records
       await this.performLaborCostDataMigration();
 
+      // Make invoice_number nullable for draft invoices
+      await this.performInvoiceNumberNullableMigration();
+
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -1321,6 +1324,95 @@ export class DatabaseManager {
       });
       console.error(`❌ Labor cost data migration '${migrationName}' failed:`, (error as Error).message);
       console.log(`🔄 Continuing without populating labor_cost`);
+    }
+  }
+
+  /**
+   * Migration to make invoice_number nullable for draft invoices
+   */
+  private async performInvoiceNumberNullableMigration(): Promise<void> {
+    const migrationName = 'make_invoice_number_nullable';
+    console.log(`🔄 Starting invoice_number nullable migration: ${migrationName}`);
+
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Check current schema
+      const tableInfo = await this.all("PRAGMA table_info(invoices)");
+      const invoiceNumberCol = tableInfo.find((col: any) => col.name === 'invoice_number');
+
+      if (invoiceNumberCol && invoiceNumberCol.notnull === 0) {
+        console.log('ℹ️ invoice_number is already nullable - skipping');
+        await this.updateMigrationLog(migrationName, 'completed', {
+          action: 'skipped',
+          reason: 'Column already nullable'
+        });
+        return;
+      }
+
+      console.log('🔄 Recreating invoices table with nullable invoice_number...');
+
+      // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+      // 1. Create new table with correct schema
+      await this.run(`
+        CREATE TABLE invoices_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          invoice_number TEXT UNIQUE,
+          estimate_id INTEGER,
+          client_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled', 'void')),
+          total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+          paid_amount DECIMAL(10,2) DEFAULT 0,
+          due_date DATE,
+          payment_terms TEXT DEFAULT 'Net 30',
+          terms_and_notes TEXT,
+          voided_at DATETIME,
+          void_reason TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (client_id) REFERENCES clients (id),
+          FOREIGN KEY (estimate_id) REFERENCES estimates (id)
+        )
+      `);
+
+      // 2. Copy data from old table to new table
+      await this.run(`
+        INSERT INTO invoices_new
+        SELECT * FROM invoices
+      `);
+
+      // 3. Drop old table
+      await this.run('DROP TABLE invoices');
+
+      // 4. Rename new table
+      await this.run('ALTER TABLE invoices_new RENAME TO invoices');
+
+      console.log('✅ Recreated invoices table with nullable invoice_number');
+
+      // Mark migration as completed
+      await this.updateMigrationLog(migrationName, 'completed', {
+        action: 'recreated_table',
+        table: 'invoices'
+      });
+
+      console.log(`✅ Invoice number nullable migration '${migrationName}' completed successfully`);
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Invoice number nullable migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing schema`);
     }
   }
 }
