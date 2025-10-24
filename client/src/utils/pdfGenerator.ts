@@ -47,7 +47,10 @@ const formatCurrency = (amount: number): string => {
 };
 
 const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString();
+  // Parse date as local time, not UTC, to avoid timezone issues
+  // If dateString is "2025-08-01", we want Aug 1, not July 31
+  const date = new Date(dateString + 'T00:00:00'); // Add time to force local timezone
+  return date.toLocaleDateString();
 };
 
 export const generateEstimatePDF = async (estimate: Estimate, options: PDFOptions = {}): Promise<void> => {
