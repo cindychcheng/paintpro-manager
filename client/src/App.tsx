@@ -329,7 +329,7 @@ function App() {
                   </div>
                   <div>
                     <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      {dashboardInvoices.filter(i => i.status === 'paid' && i.status !== 'void').length}
+                      {dashboardInvoices.filter(i => i.status === 'paid').length}
                     </div>
                     <div className="text-sm font-medium text-slate-600">Paid Invoices</div>
                   </div>

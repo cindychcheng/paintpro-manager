@@ -381,7 +381,7 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   
   doc.setFontSize(16);
   doc.setTextColor(37, 99, 235);
-  doc.text(invoice.invoice_number, 150, invoiceHeaderY);
+  doc.text(invoice.invoice_number || `Draft #${invoice.id}`, 150, invoiceHeaderY);
   
   // Invoice details aligned with business address
   doc.setFontSize(9);
