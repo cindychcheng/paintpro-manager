@@ -299,7 +299,8 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 lg:col-span-1">
+                  {/* Row 1: Area Name, Area Type, Surface Type */}
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Area Name *
                     </label>
@@ -315,6 +316,156 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
                     {errors[`area_${index}_name`] && <p className="text-red-500 text-sm mt-1">{errors[`area_${index}_name`]}</p>}
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Area Type
+                    </label>
+                    <select
+                      value={area.area_type}
+                      onChange={(e) => updateProjectArea(index, 'area_type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="indoor">Indoor</option>
+                      <option value="outdoor">Outdoor</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Surface Type
+                    </label>
+                    <select
+                      value={area.surface_type}
+                      onChange={(e) => updateProjectArea(index, 'surface_type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="drywall">Drywall</option>
+                      <option value="wood">Wood</option>
+                      <option value="metal">Metal</option>
+                      <option value="brick">Brick</option>
+                      <option value="stucco">Stucco</option>
+                      <option value="concrete">Concrete</option>
+                    </select>
+                  </div>
+
+                  {/* Row 2: Square Footage, Ceiling Height, Prep Requirements */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Size (sq ft)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.square_footage || 0}
+                      onChange={(e) => updateProjectArea(index, 'square_footage', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ceiling Height (ft)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.ceiling_height || 8}
+                      onChange={(e) => updateProjectArea(index, 'ceiling_height', parseFloat(e.target.value) || 8)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prep Requirements
+                    </label>
+                    <input
+                      type="text"
+                      value={area.prep_requirements || ''}
+                      onChange={(e) => updateProjectArea(index, 'prep_requirements', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Sanding, priming"
+                    />
+                  </div>
+
+                  {/* Row 3: Paint Type, Paint Brand, Paint Color */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Paint Type
+                    </label>
+                    <select
+                      value={area.paint_type}
+                      onChange={(e) => updateProjectArea(index, 'paint_type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Latex">Latex</option>
+                      <option value="Oil-Based">Oil-Based</option>
+                      <option value="Acrylic">Acrylic</option>
+                      <option value="Enamel">Enamel</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand
+                    </label>
+                    <input
+                      type="text"
+                      value={area.paint_brand}
+                      onChange={(e) => updateProjectArea(index, 'paint_brand', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Benjamin Moore"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Color
+                    </label>
+                    <input
+                      type="text"
+                      value={area.paint_color || ''}
+                      onChange={(e) => updateProjectArea(index, 'paint_color', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Cloud White"
+                    />
+                  </div>
+
+                  {/* Row 4: Finish Type, Number of Coats */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Finish Type
+                    </label>
+                    <select
+                      value={area.finish_type}
+                      onChange={(e) => updateProjectArea(index, 'finish_type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Flat">Flat</option>
+                      <option value="Eggshell">Eggshell</option>
+                      <option value="Satin">Satin</option>
+                      <option value="Semi-Gloss">Semi-Gloss</option>
+                      <option value="Gloss">Gloss</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Coats
+                    </label>
+                    <input
+                      type="number"
+                      value={area.number_of_coats || 2}
+                      onChange={(e) => updateProjectArea(index, 'number_of_coats', parseInt(e.target.value) || 2)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="1"
+                      max="10"
+                    />
+                  </div>
+
+                  {/* Row 5: Labor Cost, Material Cost */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Labor Cost ($)
@@ -335,7 +486,7 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
                     </label>
                     <input
                       type="number"
-                      value={area.material_cost}
+                      value={area.material_cost || 0}
                       onChange={(e) => updateProjectArea(index, 'material_cost', parseFloat(e.target.value) || 0)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       min="0"
@@ -343,19 +494,8 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Paint Color
-                    </label>
-                    <input
-                      type="text"
-                      value={area.paint_color}
-                      onChange={(e) => updateProjectArea(index, 'paint_color', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
+                  {/* Row 6: Notes (full width) */}
+                  <div className="sm:col-span-2 lg:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Notes
                     </label>
