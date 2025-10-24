@@ -1311,9 +1311,9 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
         INSERT INTO project_areas (
           invoice_id, area_name, area_type, surface_type, square_footage,
           ceiling_height, prep_requirements, paint_type, paint_brand, paint_color,
-          finish_type, number_of_coats, labor_hours, labor_rate, labor_cost, material_cost, notes
+          finish_type, number_of_coats, labor_cost, material_cost, notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         invoiceId,
         area.area_name,
@@ -1327,8 +1327,6 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
         area.paint_color,
         area.finish_type,
         area.number_of_coats,
-        area.labor_hours,
-        area.labor_rate,
         area.labor_cost,
         area.material_cost,
         area.notes
