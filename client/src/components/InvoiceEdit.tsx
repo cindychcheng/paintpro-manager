@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, ArrowLeft, AlertCircle, Edit3 } from 'lucide-react';
-import { Invoice } from '../services/api';
+import { Save, ArrowLeft, AlertCircle, Edit3, Plus, Trash2 } from 'lucide-react';
+import { Invoice, ProjectArea } from '../services/api';
 import apiService from '../services/api';
 
 interface InvoiceEditProps {
@@ -12,20 +12,22 @@ interface InvoiceEditProps {
 interface EditableInvoiceData {
   title: string;
   description: string;
-  total_amount: number;
   due_date: string;
   payment_terms: string;
   terms_and_notes: string;
+  created_at: string;
+  project_areas: ProjectArea[];
 }
 
 const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) => {
   const [formData, setFormData] = useState<EditableInvoiceData>({
     title: invoice.title,
     description: invoice.description || '',
-    total_amount: invoice.total_amount,
     due_date: invoice.due_date || '',
     payment_terms: invoice.payment_terms,
-    terms_and_notes: invoice.terms_and_notes || ''
+    terms_and_notes: invoice.terms_and_notes || '',
+    created_at: invoice.created_at ? invoice.created_at.split('T')[0] : '',
+    project_areas: invoice.project_areas || []
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,13 +40,70 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
     }).format(amount);
   };
 
+  const calculateTotals = () => {
+    let totalLabor = 0;
+    let totalMaterial = 0;
+
+    formData.project_areas.forEach(area => {
+      totalLabor += area.labor_cost || 0;
+      totalMaterial += area.material_cost || 0;
+    });
+
+    const total = totalLabor + totalMaterial;
+
+    return { totalLabor, totalMaterial, total };
+  };
+
+  const addProjectArea = () => {
+    setFormData(prev => ({
+      ...prev,
+      project_areas: [...prev.project_areas, {
+        area_name: '',
+        area_type: 'indoor',
+        surface_type: 'drywall',
+        square_footage: 0,
+        ceiling_height: 8,
+        prep_requirements: '',
+        paint_type: 'Latex',
+        paint_brand: 'Benjamin Moore',
+        paint_color: '',
+        finish_type: 'Eggshell',
+        number_of_coats: 2,
+        labor_cost: 0,
+        material_cost: 0,
+        notes: ''
+      }]
+    }));
+  };
+
+  const removeProjectArea = (index: number) => {
+    if (formData.project_areas.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        project_areas: prev.project_areas.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateProjectArea = (index: number, field: keyof ProjectArea, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      project_areas: prev.project_areas.map((area, i) =>
+        i === index ? { ...area, [field]: value } : area
+      )
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Basic validation
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (formData.total_amount <= 0) newErrors.total_amount = 'Total amount must be greater than 0';
+
+    formData.project_areas.forEach((area, index) => {
+      if (!area.area_name.trim()) newErrors[`area_${index}_name`] = 'Area name is required';
+    });
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -81,10 +140,7 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
     }
   };
 
-  const originalAmount = invoice.total_amount;
-  const difference = formData.total_amount - originalAmount;
-  const discountApplied = difference < 0;
-  const increaseApplied = difference > 0;
+  const { totalLabor, totalMaterial, total } = calculateTotals();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -197,69 +253,142 @@ const InvoiceEdit: React.FC<InvoiceEditProps> = ({ invoice, onSave, onCancel }) 
                 <option value="Custom">Custom</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Invoice Date
+              </label>
+              <input
+                type="date"
+                value={formData.created_at}
+                onChange={(e) => setFormData(prev => ({ ...prev, created_at: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Pricing Adjustment */}
+        {/* Project Areas */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing Adjustment</h3>
-          <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Original Amount
-                  </label>
-                  <div className="text-lg font-semibold text-gray-900">
-                    {formatCurrency(originalAmount)}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    New Total Amount *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.total_amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_amount: parseFloat(e.target.value) || 0 }))}
-                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.total_amount ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    min="0"
-                    step="0.01"
-                  />
-                  {errors.total_amount && <p className="text-red-500 text-sm mt-1">{errors.total_amount}</p>}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Project Areas</h3>
+            <button
+              type="button"
+              onClick={addProjectArea}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Add Area
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {formData.project_areas.map((area, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">Area {index + 1}</h4>
+                  {formData.project_areas.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeProjectArea(index)}
+                      className="text-red-600 hover:text-red-800 p-2"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Adjustment
-                  </label>
-                  <div className={`text-lg font-semibold ${
-                    difference === 0 ? 'text-gray-900' :
-                    discountApplied ? 'text-green-600' : 'text-blue-600'
-                  }`}>
-                    {difference === 0 ? 'No change' :
-                     discountApplied ? `${formatCurrency(Math.abs(difference))} discount` :
-                     `${formatCurrency(difference)} increase`}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Area Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={area.area_name}
+                      onChange={(e) => updateProjectArea(index, 'area_name', e.target.value)}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors[`area_${index}_name`] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Living Room"
+                    />
+                    {errors[`area_${index}_name`] && <p className="text-red-500 text-sm mt-1">{errors[`area_${index}_name`]}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Labor Cost ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.labor_cost || 0}
+                      onChange={(e) => updateProjectArea(index, 'labor_cost', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Material Cost ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.material_cost}
+                      onChange={(e) => updateProjectArea(index, 'material_cost', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Paint Color
+                    </label>
+                    <input
+                      type="text"
+                      value={area.paint_color}
+                      onChange={(e) => updateProjectArea(index, 'paint_color', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={area.notes || ''}
+                      onChange={(e) => updateProjectArea(index, 'notes', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Additional notes for this area..."
+                    />
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cost Summary */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600">Labor Cost</div>
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(totalLabor)}</div>
             </div>
-
-            {(discountApplied || increaseApplied) && (
-              <div className={`p-4 rounded-lg border ${
-                discountApplied ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
-              }`}>
-                <div className={`text-sm ${discountApplied ? 'text-green-800' : 'text-blue-800'}`}>
-                  {discountApplied ? 
-                    `💡 Discount of ${formatCurrency(Math.abs(difference))} will be applied to this invoice.` :
-                    `⚡ Additional charges of ${formatCurrency(difference)} will be added to this invoice.`
-                  }
-                </div>
-              </div>
-            )}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600">Material Cost</div>
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(totalMaterial)}</div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+              <div className="text-sm text-blue-600 font-medium">Total Amount</div>
+              <div className="text-2xl font-bold text-blue-900">{formatCurrency(total)}</div>
+            </div>
           </div>
         </div>
 
