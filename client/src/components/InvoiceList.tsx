@@ -107,7 +107,8 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString();
   };
 
   const handleStatusUpdate = async (id: number, newStatus: Invoice['status']) => {

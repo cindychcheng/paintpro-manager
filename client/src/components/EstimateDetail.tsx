@@ -30,7 +30,8 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString();
   };
 
   const getStatusColor = (status: string) => {

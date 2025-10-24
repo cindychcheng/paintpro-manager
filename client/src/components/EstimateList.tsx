@@ -105,7 +105,8 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString();
   };
 
   const handleStatusUpdate = async (id: number, newStatus: Estimate['status']) => {
