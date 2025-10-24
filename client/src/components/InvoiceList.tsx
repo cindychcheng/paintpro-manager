@@ -239,11 +239,11 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status).replace('bg-', 'bg-gradient-to-r from-').replace(' text-', ' to-').replace('-100', '-200')} text-white shadow-lg`}>
+                  <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)} shadow-lg`}>
                     {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                   </span>
-                  {isOverdue && (
-                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg">
+                  {isOverdue && invoice.status !== 'paid' && (
+                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 shadow-lg">
                       Overdue
                     </span>
                   )}
