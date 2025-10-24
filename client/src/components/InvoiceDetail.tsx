@@ -549,7 +549,7 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
     {showPaymentForm && (
       <PaymentForm
         invoice={invoice}
-        onSubmit={handleRecordPayment}
+        onSave={handleRecordPayment}
         onCancel={() => setShowPaymentForm(false)}
       />
     )}
