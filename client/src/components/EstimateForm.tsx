@@ -17,10 +17,7 @@ interface ProjectArea {
   paint_color: string;
   finish_type: string;
   number_of_coats: number;
-  labor_hours: number;
-  labor_rate: number;
-  labor_cost?: number;
-  labor_cost_method: 'hours_rate' | 'direct_cost';
+  labor_cost: number;
   material_cost: number;
   notes?: string;
 }
@@ -51,10 +48,7 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
       paint_color: '',
       finish_type: 'Eggshell',
       number_of_coats: 2,
-      labor_hours: 0,
-      labor_rate: 45,
       labor_cost: 0,
-      labor_cost_method: 'hours_rate' as const,
       material_cost: 0,
       notes: ''
     }]
@@ -84,10 +78,7 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
         paint_color: '',
         finish_type: 'Eggshell',
         number_of_coats: 2,
-        labor_hours: 0,
-        labor_rate: 45,
         labor_cost: 0,
-        labor_cost_method: 'hours_rate' as const,
         material_cost: 0,
         notes: ''
       }]
@@ -117,12 +108,8 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
     let totalMaterial = 0;
 
     formData.project_areas.forEach(area => {
-      if (area.labor_cost_method === 'direct_cost') {
-        totalLabor += area.labor_cost || 0;
-      } else {
-        totalLabor += area.labor_hours * area.labor_rate;
-      }
-      totalMaterial += area.material_cost;
+      totalLabor += area.labor_cost || 0;
+      totalMaterial += area.material_cost || 0;
     });
 
     const total = totalLabor + totalMaterial;
@@ -402,87 +389,21 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
-                  {/* Labor Cost Method Toggle */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Labor Cost Method
-                    </label>
-                    <div className="flex space-x-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`labor_method_${index}`}
-                          value="hours_rate"
-                          checked={area.labor_cost_method === 'hours_rate'}
-                          onChange={(e) => updateProjectArea(index, 'labor_cost_method', e.target.value as 'hours_rate' | 'direct_cost')}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Hours × Rate</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={`labor_method_${index}`}
-                          value="direct_cost"
-                          checked={area.labor_cost_method === 'direct_cost'}
-                          onChange={(e) => updateProjectArea(index, 'labor_cost_method', e.target.value as 'hours_rate' | 'direct_cost')}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Direct Cost</span>
-                      </label>
-                    </div>
-                  </div>
 
-                  {/* Conditional Labor Cost Fields */}
-                  {area.labor_cost_method === 'hours_rate' ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Labor Hours
-                        </label>
-                        <input
-                          type="number"
-                          value={area.labor_hours}
-                          onChange={(e) => updateProjectArea(index, 'labor_hours', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          min="0"
-                          step="0.5"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Labor Rate ($/hour)
-                        </label>
-                        <input
-                          type="number"
-                          value={area.labor_rate}
-                          onChange={(e) => updateProjectArea(index, 'labor_rate', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          min="0"
-                          step="0.01"
-                        />
-                        <div className="text-xs text-gray-500 mt-1">
-                          Labor Total: ${((area.labor_hours || 0) * (area.labor_rate || 0)).toFixed(2)}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Direct Labor Cost ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={area.labor_cost || 0}
-                        onChange={(e) => updateProjectArea(index, 'labor_cost', parseFloat(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        min="0"
-                        step="0.01"
-                        placeholder="Enter total labor cost"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Labor Cost ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={area.labor_cost || 0}
+                      onChange={(e) => updateProjectArea(index, 'labor_cost', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter labor cost"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -526,7 +447,7 @@ const EstimateForm: React.FC<EstimateFormProps> = ({ onSave, onCancel, initialDa
         {/* Cost Summary */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Summary</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-sm text-gray-600">Labor Cost</div>
               <div className="text-xl font-bold text-gray-900">${totalLabor.toFixed(2)}</div>

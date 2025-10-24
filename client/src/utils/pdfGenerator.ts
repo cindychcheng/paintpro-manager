@@ -221,20 +221,15 @@ export const generateEstimatePDF = async (estimate: Estimate, options: PDFOption
   
   if (estimate.project_areas && estimate.project_areas.length > 0) {
     const tableData = estimate.project_areas.map(area => {
-      // Calculate labor amount (hours × rate)
-      const baseLaborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
-      const baseMaterialAmount = area.material_cost || 0;
-      
-      // Apply markup to both labor and material
-      const markupMultiplier = 1 + (estimate.markup_percentage / 100);
-      const laborWithMarkup = baseLaborAmount * markupMultiplier;
-      const materialWithMarkup = baseMaterialAmount * markupMultiplier;
+      // Use direct labor cost
+      const laborAmount = area.labor_cost || 0;
+      const materialAmount = area.material_cost || 0;
       
       return [
         area.area_name,
         area.area_type,
-        laborWithMarkup > 0 ? formatCurrency(laborWithMarkup) : 'N/A',
-        materialWithMarkup > 0 ? formatCurrency(materialWithMarkup) : 'N/A'
+        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
+        materialAmount > 0 ? formatCurrency(materialAmount) : 'N/A'
       ];
     });
     
@@ -490,19 +485,15 @@ export const generateInvoicePDF = async (invoice: Invoice, options: PDFOptions =
   
   if (invoice.project_areas && invoice.project_areas.length > 0) {
     const tableData = invoice.project_areas.map(area => {
-      // Calculate labor amount (hours × rate)
-      const baseLaborAmount = (area.labor_hours || 0) * (area.labor_rate || 0);
-      const baseMaterialAmount = area.material_cost || 0;
-      
-      // For invoices, amounts are already final (markup already applied during conversion)
-      const laborWithMarkup = baseLaborAmount;
-      const materialWithMarkup = baseMaterialAmount;
+      // Use direct labor cost
+      const laborAmount = area.labor_cost || 0;
+      const materialAmount = area.material_cost || 0;
       
       return [
         area.area_name,
         area.area_type,
-        laborWithMarkup > 0 ? formatCurrency(laborWithMarkup) : 'N/A',
-        materialWithMarkup > 0 ? formatCurrency(materialWithMarkup) : 'N/A'
+        laborAmount > 0 ? formatCurrency(laborAmount) : 'N/A',
+        materialAmount > 0 ? formatCurrency(materialAmount) : 'N/A'
       ];
     });
     

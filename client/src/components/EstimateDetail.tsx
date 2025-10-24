@@ -82,8 +82,7 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
         paint_color: area.paint_color,
         finish_type: area.finish_type,
         number_of_coats: area.number_of_coats,
-        labor_hours: area.labor_hours,
-        labor_rate: area.labor_rate,
+        labor_cost: area.labor_cost,
         material_cost: area.material_cost,
         notes: area.notes
       })) || []
@@ -197,8 +196,7 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
         paint_color: area.paint_color,
         finish_type: area.finish_type,
         number_of_coats: area.number_of_coats,
-        labor_hours: area.labor_hours,
-        labor_rate: area.labor_rate,
+        labor_cost: area.labor_cost,
         material_cost: area.material_cost,
         notes: area.notes
       })) || []
@@ -414,12 +412,12 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimateId, onBack, ini
                       <div className="font-medium">{area.square_footage ? `${area.square_footage} sq ft` : 'N/A'}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Labor Hours:</span>
-                      <div className="font-medium">{area.labor_hours || 'N/A'}</div>
+                      <span className="text-gray-500">Labor Cost:</span>
+                      <div className="font-medium">{formatCurrency(area.labor_cost)}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Labor Rate:</span>
-                      <div className="font-medium">{area.labor_rate ? formatCurrency(area.labor_rate) : 'N/A'}</div>
+                      <span className="text-gray-500">Material Cost:</span>
+                      <div className="font-medium">{formatCurrency(area.material_cost)}</div>
                     </div>
                   </div>
                   {area.paint_type && (

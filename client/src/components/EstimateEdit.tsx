@@ -52,8 +52,7 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
         paint_color: '',
         finish_type: 'Eggshell',
         number_of_coats: 2,
-        labor_hours: 0,
-        labor_rate: 45,
+        labor_cost: 0,
         material_cost: 0,
         notes: ''
       }]
@@ -396,15 +395,15 @@ const EstimateEdit: React.FC<EstimateEditProps> = ({ estimate, onSave, onCancel 
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Labor Hours
+                      Labor Cost ($)
                     </label>
                     <input
                       type="number"
-                      value={area.labor_hours}
-                      onChange={(e) => updateProjectArea(index, 'labor_hours', parseFloat(e.target.value) || 0)}
+                      value={area.labor_cost}
+                      onChange={(e) => updateProjectArea(index, 'labor_cost', parseFloat(e.target.value) || 0)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       min="0"
-                      step="0.5"
+                      step="0.01"
                     />
                   </div>
 

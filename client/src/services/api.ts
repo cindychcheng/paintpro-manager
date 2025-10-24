@@ -32,10 +32,7 @@ export interface ProjectArea {
   paint_color: string;
   finish_type: string;
   number_of_coats: number;
-  labor_hours: number;
-  labor_rate: number;
-  labor_cost?: number;
-  labor_cost_method?: 'hours_rate' | 'direct_cost';
+  labor_cost: number;
   material_cost: number;
   notes?: string;
 }

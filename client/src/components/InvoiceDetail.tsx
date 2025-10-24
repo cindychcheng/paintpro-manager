@@ -494,12 +494,12 @@ const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, initia
                       <div className="font-medium">{area.square_footage ? `${area.square_footage} sq ft` : 'N/A'}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Labor Hours:</span>
-                      <div className="font-medium">{area.labor_hours || 'N/A'}</div>
+                      <span className="text-gray-500">Labor Cost:</span>
+                      <div className="font-medium">{formatCurrency(area.labor_cost)}</div>
                     </div>
                     <div>
                       <span className="text-gray-500">Material Cost:</span>
-                      <div className="font-medium">{area.material_cost ? formatCurrency(area.material_cost) : 'N/A'}</div>
+                      <div className="font-medium">{formatCurrency(area.material_cost)}</div>
                     </div>
                   </div>
                   {area.paint_type && (
