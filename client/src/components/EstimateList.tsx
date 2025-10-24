@@ -105,7 +105,11 @@ const EstimateList: React.FC<EstimateListProps> = ({ onCreateNew, onViewEstimate
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00');
+    // If dateString already has time component (contains 'T'), use it as-is
+    // Otherwise, add T00:00:00 to treat it as local time
+    const date = dateString.includes('T')
+      ? new Date(dateString)
+      : new Date(dateString + 'T00:00:00');
     return date.toLocaleDateString();
   };
 

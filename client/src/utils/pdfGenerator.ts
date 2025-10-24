@@ -47,9 +47,11 @@ const formatCurrency = (amount: number): string => {
 };
 
 const formatDate = (dateString: string): string => {
-  // Parse date as local time, not UTC, to avoid timezone issues
-  // If dateString is "2025-08-01", we want Aug 1, not July 31
-  const date = new Date(dateString + 'T00:00:00'); // Add time to force local timezone
+  // If dateString already has time component (contains 'T'), use it as-is
+  // Otherwise, add T00:00:00 to treat it as local time
+  const date = dateString.includes('T')
+    ? new Date(dateString)
+    : new Date(dateString + 'T00:00:00');
   return date.toLocaleDateString();
 };
 
