@@ -50,10 +50,13 @@ export const useInvoices = (filters?: {
         await fetchInvoices(); // Refresh the list
         return true;
       } else {
-        throw new Error(response.error || 'Failed to convert estimate to invoice');
+        const errorMsg = (response as any).details || response.error || 'Failed to convert estimate to invoice';
+        throw new Error(errorMsg);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to convert estimate to invoice');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to convert estimate to invoice';
+      console.error('Convert estimate error:', errorMsg, err);
+      setError(errorMsg);
       return false;
     }
   };

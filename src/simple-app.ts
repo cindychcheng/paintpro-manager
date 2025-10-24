@@ -1346,7 +1346,16 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
     });
   } catch (error) {
     console.error('Error converting estimate to invoice:', error);
-    res.status(500).json({ success: false, error: 'Failed to convert estimate to invoice' });
+    console.error('Error details:', {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      estimateId: req.params.id
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to convert estimate to invoice',
+      details: (error as Error).message
+    });
   }
 });
 
