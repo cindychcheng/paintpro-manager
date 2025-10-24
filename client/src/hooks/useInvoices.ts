@@ -77,7 +77,7 @@ export const useInvoices = (filters?: {
   };
 
   const recordPayment = async (
-    invoiceId: number, 
+    invoiceId: number,
     paymentData: RecordPaymentRequest
   ): Promise<boolean> => {
     try {
@@ -94,6 +94,24 @@ export const useInvoices = (filters?: {
     }
   };
 
+  const voidInvoice = async (
+    invoiceId: number,
+    void_reason: string
+  ): Promise<boolean> => {
+    try {
+      const response = await apiService.voidInvoice(invoiceId, void_reason);
+      if (response.success) {
+        await fetchInvoices(); // Refresh the list
+        return true;
+      } else {
+        throw new Error(response.error || 'Failed to void invoice');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to void invoice');
+      return false;
+    }
+  };
+
   return {
     invoices,
     loading,
@@ -104,6 +122,7 @@ export const useInvoices = (filters?: {
     convertEstimateToInvoice,
     updateInvoiceStatus,
     recordPayment,
+    voidInvoice,
   };
 };
 

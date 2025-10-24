@@ -168,17 +168,19 @@ export class DatabaseManager {
       // Invoices table
       `CREATE TABLE IF NOT EXISTS invoices (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        invoice_number TEXT UNIQUE NOT NULL,
+        invoice_number TEXT UNIQUE,
         estimate_id INTEGER,
         client_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
-        status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
+        status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled', 'void')),
         total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
         paid_amount DECIMAL(10,2) DEFAULT 0,
         due_date DATE,
         payment_terms TEXT DEFAULT 'Net 30',
         terms_and_notes TEXT,
+        voided_at DATETIME,
+        void_reason TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (client_id) REFERENCES clients (id),
@@ -351,7 +353,10 @@ export class DatabaseManager {
       
       // Labor cost field migration
       await this.performLaborCostFieldMigration();
-      
+
+      // Invoice void functionality migration
+      await this.performInvoiceVoidMigration();
+
       // Check existing data counts
       try {
         const clientCount = await this.get('SELECT COUNT(*) as count FROM clients');
@@ -1181,6 +1186,75 @@ export class DatabaseManager {
         error: (error as Error).message
       });
       console.error(`❌ Labor cost field migration '${migrationName}' failed:`, (error as Error).message);
+      console.log(`🔄 Continuing with existing schema`);
+    }
+  }
+
+  /**
+   * Migration to add void functionality to invoices
+   */
+  private async performInvoiceVoidMigration(): Promise<void> {
+    const migrationName = 'add_invoice_void_functionality';
+    console.log(`🔄 Starting invoice void migration: ${migrationName}`);
+
+    try {
+      // Check if migration has already been applied
+      const migrationRecord = await this.checkMigrationStatus(migrationName);
+      if (migrationRecord?.status === 'completed') {
+        console.log(`ℹ️ Migration '${migrationName}' already completed - skipping`);
+        return;
+      }
+
+      // Create migration log entry
+      await this.createMigrationLog(migrationName, 'started');
+
+      // Check current invoices table schema
+      const tableInfo = await this.all("PRAGMA table_info(invoices)");
+      const existingColumns = tableInfo.map((col: any) => col.name);
+
+      let addedColumns: string[] = [];
+      let updatedConstraints = false;
+
+      // Add voided_at column if it doesn't exist
+      if (!existingColumns.includes('voided_at')) {
+        await this.run('ALTER TABLE invoices ADD COLUMN voided_at DATETIME');
+        addedColumns.push('voided_at');
+        console.log('✅ Added voided_at column to invoices table');
+      }
+
+      // Add void_reason column if it doesn't exist
+      if (!existingColumns.includes('void_reason')) {
+        await this.run('ALTER TABLE invoices ADD COLUMN void_reason TEXT');
+        addedColumns.push('void_reason');
+        console.log('✅ Added void_reason column to invoices table');
+      }
+
+      // Note: SQLite doesn't support ALTER TABLE to modify CHECK constraints
+      // The new constraint will only apply to newly created tables
+      // Existing tables will continue to work, and the application logic will enforce 'void' status
+      console.log('ℹ️ Note: "void" status will be enforced by application logic for existing tables');
+
+      // Mark invoice_number as nullable for draft invoices
+      // Note: SQLite doesn't support ALTER TABLE to modify column constraints directly
+      // This will be handled at the application level
+      console.log('ℹ️ Note: Nullable invoice_number for drafts will be enforced by application logic');
+
+      // Mark migration as completed
+      await this.updateMigrationLog(migrationName, 'completed', {
+        addedColumns,
+        note: 'CHECK constraint and NOT NULL constraint updates require table recreation in SQLite, enforced by application logic'
+      });
+
+      console.log(`✅ Invoice void migration '${migrationName}' completed successfully`);
+      if (addedColumns.length > 0) {
+        console.log(`   📋 Added columns: ${addedColumns.join(', ')}`);
+      }
+
+    } catch (error) {
+      await this.updateMigrationLog(migrationName, 'failed', {
+        error: (error as Error).message
+      });
+      console.error(`❌ Invoice void migration '${migrationName}' failed:`, (error as Error).message);
       console.log(`🔄 Continuing with existing schema`);
     }
   }

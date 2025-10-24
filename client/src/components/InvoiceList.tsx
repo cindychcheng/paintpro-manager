@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Eye, Edit, DollarSign, Plus, FileText, AlertCircle, CheckCircle, Send } from 'lucide-react';
+import { Search, Filter, Eye, Edit, DollarSign, Plus, FileText, AlertCircle, CheckCircle, Send, XCircle } from 'lucide-react';
 import { useInvoices } from '../hooks/useInvoices';
 import { Invoice } from '../services/api';
 
@@ -16,6 +16,9 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [overdueFilter, setOverdueFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [voidModalOpen, setVoidModalOpen] = useState(false);
+  const [selectedInvoiceForVoid, setSelectedInvoiceForVoid] = useState<Invoice | null>(null);
+  const [voidReason, setVoidReason] = useState('');
 
   const filters = useMemo(() => ({
     page: currentPage,
@@ -32,7 +35,8 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
     total,
     totalPages,
     refetch,
-    updateInvoiceStatus
+    updateInvoiceStatus,
+    voidInvoice
   } = useInvoices(filters);
 
   // Debounce search term
@@ -56,8 +60,33 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
       case 'paid': return 'bg-green-100 text-green-800';
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'cancelled': return 'bg-gray-100 text-gray-600';
+      case 'void': return 'bg-gray-300 text-gray-700';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleVoidInvoice = (invoice: Invoice) => {
+    setSelectedInvoiceForVoid(invoice);
+    setVoidReason('');
+    setVoidModalOpen(true);
+  };
+
+  const handleVoidConfirm = async () => {
+    if (!selectedInvoiceForVoid || !voidReason.trim()) return;
+
+    const success = await voidInvoice(selectedInvoiceForVoid.id, voidReason.trim());
+    if (success) {
+      setVoidModalOpen(false);
+      setSelectedInvoiceForVoid(null);
+      setVoidReason('');
+      refetch();
+    }
+  };
+
+  const handleVoidCancel = () => {
+    setVoidModalOpen(false);
+    setSelectedInvoiceForVoid(null);
+    setVoidReason('');
   };
 
   const getPaymentStatusColor = (invoice: Invoice) => {
@@ -167,6 +196,7 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
               <option value="paid">Paid</option>
               <option value="overdue">Overdue</option>
               <option value="cancelled">Cancelled</option>
+              <option value="void">Void</option>
             </select>
           </div>
           <label className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-4 shadow-lg border border-white/20 text-slate-700 font-medium">
@@ -188,14 +218,21 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
           const outstandingAmount = invoice.total_amount - invoice.paid_amount;
           
           return (
-            <div 
-              key={invoice.id} 
-              className={`group bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${isOverdue ? 'ring-2 ring-red-300 bg-red-50/30' : ''}`}
+            <div
+              key={invoice.id}
+              className={`group bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${
+                invoice.status === 'void' ? 'opacity-60 grayscale' : ''
+              } ${isOverdue && invoice.status !== 'void' ? 'ring-2 ring-red-300 bg-red-50/30' : ''}`}
             >
               {/* Card Header */}
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-800 mb-1">{invoice.invoice_number}</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-1">
+                    {invoice.invoice_number || `Draft #${invoice.id}`}
+                    {invoice.status === 'void' && (
+                      <span className="ml-2 text-xs text-gray-500">(VOID)</span>
+                    )}
+                  </h3>
                   <p className="text-slate-600 text-sm line-clamp-2">{invoice.title}</p>
                   {invoice.estimate_number && (
                     <p className="text-xs text-blue-600 mt-1 font-medium">From: {invoice.estimate_number}</p>
@@ -288,13 +325,22 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
                       <CheckCircle size={16} />
                     </button>
                   )}
-                  {outstandingAmount > 0 && invoice.status !== 'paid' && (
+                  {outstandingAmount > 0 && invoice.status !== 'paid' && invoice.status !== 'void' && (
                     <button
                       onClick={() => onRecordPayment(invoice)}
                       className="w-9 h-9 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
                       title="Record Payment"
                     >
                       <DollarSign size={16} />
+                    </button>
+                  )}
+                  {(invoice.status === 'draft' || invoice.status === 'sent') && (
+                    <button
+                      onClick={() => handleVoidInvoice(invoice)}
+                      className="w-9 h-9 bg-gray-500 hover:bg-gray-600 text-white rounded-xl flex items-center justify-center transition-colors shadow-lg hover:shadow-xl"
+                      title="Void Invoice"
+                    >
+                      <XCircle size={16} />
                     </button>
                   )}
                 </div>
@@ -382,6 +428,59 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onViewInvoice, onEditInvoice,
           </div>
         </div>
       </div>
+
+      {/* Void Confirmation Modal */}
+      {voidModalOpen && selectedInvoiceForVoid && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <XCircle className="text-red-600" size={24} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800">Void Invoice</h3>
+            </div>
+
+            <p className="text-slate-600 mb-4">
+              Are you sure you want to void invoice <strong>{selectedInvoiceForVoid.invoice_number || `Draft #${selectedInvoiceForVoid.id}`}</strong>?
+            </p>
+
+            <p className="text-sm text-slate-500 mb-6">
+              This action will mark the invoice as void and revert the associated estimate back to approved status.
+              The invoice number will not be reused.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Reason for voiding <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="e.g., Project cancelled, Duplicate invoice, Client changed requirements..."
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                rows={3}
+                required
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleVoidCancel}
+                className="flex-1 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleVoidConfirm}
+                disabled={!voidReason.trim()}
+                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Void Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

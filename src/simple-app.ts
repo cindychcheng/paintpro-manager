@@ -1280,18 +1280,16 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Only approved estimates can be converted to invoices' });
     }
 
-    // Generate invoice number
-    const invoiceNumber = await NumberService.getNextInvoiceNumber();
-
-    // Create invoice
+    // Create invoice as DRAFT (without invoice number)
+    // Invoice number will be assigned when status changes to 'sent'
     const result = await db.run(`
       INSERT INTO invoices (
         invoice_number, estimate_id, client_id, title, description,
-        total_amount, due_date, payment_terms, terms_and_notes
+        total_amount, due_date, payment_terms, terms_and_notes, status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      invoiceNumber,
+      null, // No invoice number for draft
       estimate.id,
       estimate.client_id,
       estimate.title,
@@ -1299,14 +1297,15 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
       estimate.total_amount,
       due_date || null,
       payment_terms,
-      estimate.terms_and_notes || null
+      estimate.terms_and_notes || null,
+      'draft' // Created as draft
     ]);
 
     const invoiceId = result.id;
 
     // Copy project areas from estimate to invoice
     const projectAreas = await db.all('SELECT * FROM project_areas WHERE estimate_id = ?', [id]);
-    
+
     for (const area of projectAreas) {
       await db.run(`
         INSERT INTO project_areas (
@@ -1345,7 +1344,7 @@ app.post('/api/estimates/:id/convert', async (req, res) => {
     res.status(201).json({
       success: true,
       data: newInvoice,
-      message: `Invoice ${invoiceNumber} created from estimate ${estimate.estimate_number}`
+      message: `Draft invoice created from estimate ${estimate.estimate_number}. Send the invoice to assign an invoice number.`
     });
   } catch (error) {
     console.error('Error converting estimate to invoice:', error);
@@ -1359,12 +1358,35 @@ app.patch('/api/invoices/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['draft', 'sent', 'paid', 'overdue', 'cancelled'].includes(status)) {
+    if (!['draft', 'sent', 'paid', 'overdue', 'cancelled', 'void'].includes(status)) {
       return res.status(400).json({ success: false, error: 'Invalid status' });
     }
 
+    // Get current invoice
+    const currentInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
+    if (!currentInvoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // If changing from 'draft' to 'sent', assign invoice number
+    if (currentInvoice.status === 'draft' && status === 'sent') {
+      if (!currentInvoice.invoice_number) {
+        const invoiceNumber = await NumberService.getNextInvoiceNumber();
+        await db.run('UPDATE invoices SET status = ?, invoice_number = ? WHERE id = ?', [status, invoiceNumber, id]);
+
+        const updatedInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
+
+        return res.json({
+          success: true,
+          data: updatedInvoice,
+          message: `Invoice ${invoiceNumber} sent successfully`
+        });
+      }
+    }
+
+    // Regular status update
     await db.run('UPDATE invoices SET status = ? WHERE id = ?', [status, id]);
-    
+
     const updatedInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
 
     res.json({
@@ -1375,6 +1397,63 @@ app.patch('/api/invoices/:id/status', async (req, res) => {
   } catch (error) {
     console.error('Error updating invoice status:', error);
     res.status(500).json({ success: false, error: 'Failed to update invoice status' });
+  }
+});
+
+// Void invoice endpoint
+app.patch('/api/invoices/:id/void', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { void_reason } = req.body;
+
+    if (!void_reason || void_reason.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Void reason is required' });
+    }
+
+    // Get current invoice
+    const invoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
+    if (!invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // Check if invoice is already void
+    if (invoice.status === 'void') {
+      return res.status(400).json({ success: false, error: 'Invoice is already void' });
+    }
+
+    // Check if invoice has payments
+    const payments = await db.all('SELECT * FROM payments WHERE invoice_id = ?', [id]);
+    if (payments && payments.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot void invoice with payments. Please delete all payments first.'
+      });
+    }
+
+    // Void the invoice
+    await db.run(
+      'UPDATE invoices SET status = ?, voided_at = CURRENT_TIMESTAMP, void_reason = ? WHERE id = ?',
+      ['void', void_reason.trim(), id]
+    );
+
+    // If invoice was converted from an estimate, revert estimate status
+    if (invoice.estimate_id) {
+      await db.run(
+        'UPDATE estimates SET status = ? WHERE id = ?',
+        ['approved', invoice.estimate_id]
+      );
+    }
+
+    const voidedInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      data: voidedInvoice,
+      message: 'Invoice voided successfully'
+    });
+  } catch (error) {
+    console.error('Error voiding invoice:', error);
+    res.status(500).json({ success: false, error: 'Failed to void invoice' });
   }
 });
 

@@ -85,17 +85,19 @@ export interface CreateEstimateRequest {
 
 export interface Invoice {
   id: number;
-  invoice_number: string;
+  invoice_number: string | null;
   estimate_id?: number;
   client_id: number;
   title: string;
   description?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'void';
   total_amount: number;
   paid_amount: number;
   due_date?: string;
   payment_terms: string;
   terms_and_notes?: string;
+  voided_at?: string;
+  void_reason?: string;
   created_at: string;
   updated_at: string;
   // Populated fields
@@ -323,7 +325,7 @@ class ApiService {
   }
 
   async updateInvoiceStatus(
-    id: number, 
+    id: number,
     status: Invoice['status']
   ): Promise<ApiResponse<Invoice>> {
     return this.request(`/invoices/${id}/status`, {
@@ -332,8 +334,18 @@ class ApiService {
     });
   }
 
+  async voidInvoice(
+    id: number,
+    void_reason: string
+  ): Promise<ApiResponse<Invoice>> {
+    return this.request(`/invoices/${id}/void`, {
+      method: 'PATCH',
+      body: JSON.stringify({ void_reason }),
+    });
+  }
+
   async recordPayment(
-    invoiceId: number, 
+    invoiceId: number,
     paymentData: RecordPaymentRequest
   ): Promise<ApiResponse<Invoice>> {
     return this.request(`/invoices/${invoiceId}/payments`, {

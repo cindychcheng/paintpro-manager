@@ -312,7 +312,7 @@ function App() {
                   <div>
                     <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                       ${dashboardInvoices
-                        .filter(i => ['sent', 'overdue'].includes(i.status))
+                        .filter(i => ['sent', 'overdue'].includes(i.status) && i.status !== 'void')
                         .reduce((sum, i) => sum + (i.total_amount - i.paid_amount), 0)
                         .toFixed(0)}
                     </div>
@@ -329,7 +329,7 @@ function App() {
                   </div>
                   <div>
                     <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      {dashboardInvoices.filter(i => i.status === 'paid').length}
+                      {dashboardInvoices.filter(i => i.status === 'paid' && i.status !== 'void').length}
                     </div>
                     <div className="text-sm font-medium text-slate-600">Paid Invoices</div>
                   </div>
